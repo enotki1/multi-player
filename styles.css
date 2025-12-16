@@ -10,7 +10,7 @@ html, body {
   color: #fff;
 }
 
-/* полноценный экран всегда */
+
 #viewport{
   position: fixed;
   inset: 0;
@@ -20,7 +20,7 @@ html, body {
   background: #000 !important;
 }
 
-/* ВАЖНО: fixed, чтобы не зависеть от контейнеров платформы */
+
 #scaleLayer{
   position: fixed;
   left: 0;
@@ -29,7 +29,7 @@ html, body {
   will-change: transform;
 }
 
-/* базовый мир */
+
 .game{
   position: relative;
   width: 1024px;
