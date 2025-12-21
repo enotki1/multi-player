@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
-  <title>Fighting Game (DOM)</title>
+  <title>DOM Fighter MP</title>
 </head>
 
 <body>
@@ -17,42 +17,36 @@
         <div class="hud">
           <div class="hp hp--player">
             <div class="hp__base"></div>
-            <div id="playerHealth" class="hp__value"></div>
+            <div id="p1Health" class="hp__value"></div>
           </div>
 
           <div id="timer" class="timer">60</div>
 
           <div class="hp hp--enemy">
             <div class="hp__base"></div>
-            <div id="enemyHealth" class="hp__value"></div>
+            <div id="p2Health" class="hp__value"></div>
           </div>
         </div>
-
-        
 
         <div id="stage" class="stage">
           <div id="background" class="sprite"></div>
           <div id="shop" class="sprite"></div>
 
-          <div id="player" class="fighter"></div>
-          <div id="enemy" class="fighter"></div>
-
-          <div id="playerAttackBox" class="attackBox"></div>
-          <div id="enemyAttackBox" class="attackBox"></div>
+          <div id="fightersLayer"></div>
         </div>
       </div>
     </div>
 
-    
     <div id="displayText" class="result-overlay"></div>
   </div>
 
-  <script defer src="./js/utils.js"></script>
-  <script defer src="./js/classes.js"></script>
-  <script defer src="./index.js"></script>
+ <script src="/socket.io/socket.io.js"></script>
+<script defer src="./js/utils.js"></script>
+<script defer src="./js/classes.js"></script>
+<script defer src="./net.js"></script>
+<script defer src="./game.js"></script>
+
+
 </body>
 </html>
-
-
-
 

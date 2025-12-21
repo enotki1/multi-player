@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Join</title>
+  <link rel="stylesheet" href="./styles.css">
+  <style>
+    .join-wrap{position:fixed;inset:0;display:grid;place-items:center;background:#000;color:#fff;font-family:"Press Start 2P",system-ui}
+    .join-card{width:min(560px,92vw);border:4px solid #fff;padding:24px;display:grid;gap:16px}
+    .join-card input{font-family:inherit;padding:12px;border:4px solid #fff;background:#000;color:#fff;outline:none}
+    .join-card button{font-family:inherit;padding:12px;border:4px solid #fff;background:#111;color:#fff;cursor:pointer}
+    .err{min-height:24px;color:#ff6b6b;font-size:12px;line-height:1.4}
+  </style>
+</head>
+<body>
+  <div class="join-wrap">
+    <div class="join-card">
+      <div style="font-size:14px;line-height:1.6">DOM Fighter Multiplayer<br/>2 players per room</div>
+
+      <input id="roomId" placeholder="ROOM ID (например 1)" autocomplete="off">
+      <input id="name" placeholder="NAME" autocomplete="off">
+      <button id="joinBtn">JOIN</button>
+      <div id="err" class="err"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="./join.js"></script>
+</body>
+</html>
+
+
+
+
+
+
