@@ -25,9 +25,10 @@
     socket,
     roomId,
     myId: null,
+    myName: name,
     sendInput(input) {
       socket.emit("input", { roomId, input });
-    }
+    },
   };
 
   socket.on("connect", () => {
@@ -54,14 +55,12 @@
   });
 
   socket.on("game-over", ({ winnerText }) => {
-    window.dispatchEvent(new CustomEvent("net-gameover", { detail: winnerText }));
+    window.dispatchEvent(
+      new CustomEvent("net-gameover", { detail: winnerText })
+    );
   });
 
   socket.on("hit", (payload) => {
     window.dispatchEvent(new CustomEvent("net-hit", { detail: payload }));
   });
 })();
-
-
-
-

@@ -99,7 +99,9 @@
     const f = new Fighter({
       position: { x: p.x, y: p.y },
       velocity: { x: 0, y: 0 },
-      imageSrc: isSamurai ? "./img/samuraiMack/Idle.png" : "./img/kenji/Idle.png",
+      imageSrc: isSamurai
+        ? "./img/samuraiMack/Idle.png"
+        : "./img/kenji/Idle.png",
       framesMax: isSamurai ? 8 : 4,
       scale: 2.5,
       offset: isSamurai ? { x: 215, y: 155 } : { x: 215, y: 167 },
@@ -112,8 +114,14 @@
             run: { imageSrc: "./img/samuraiMack/Run.png", framesMax: 8 },
             jump: { imageSrc: "./img/samuraiMack/Jump.png", framesMax: 2 },
             fall: { imageSrc: "./img/samuraiMack/Fall.png", framesMax: 2 },
-            attack1: { imageSrc: "./img/samuraiMack/Attack1.png", framesMax: 6 },
-            takeHit: { imageSrc: "./img/samuraiMack/Take Hit.png", framesMax: 4 },
+            attack1: {
+              imageSrc: "./img/samuraiMack/Attack1.png",
+              framesMax: 6,
+            },
+            takeHit: {
+              imageSrc: "./img/samuraiMack/Take Hit.png",
+              framesMax: 4,
+            },
             death: { imageSrc: "./img/samuraiMack/Death.png", framesMax: 6 },
           }
         : {
@@ -213,12 +221,15 @@
       case "Shift":
         keys.block = true;
         sendInput();
+        audioManager.play("block", 0.5);
         return;
       case "w":
         sendAction("jump");
+        audioManager.play("jump", 0.6);
         return;
       case " ":
         sendAction("attack");
+        audioManager.play("punch", 0.8);
         return;
     }
   });
@@ -236,6 +247,7 @@
       case "Shift":
         keys.block = false;
         sendInput();
+        audioManager.play("block", 0.3);
         return;
     }
   });
@@ -280,24 +292,55 @@
   window.addEventListener("room-state", (ev) => {
     const room = ev.detail;
 
-    if (typeof room.timer === "number" && timerEl) timerEl.textContent = room.timer;
+    if (typeof room.timer === "number" && timerEl)
+      timerEl.textContent = room.timer;
 
     applyRoom(room);
 
     if (room.ended && room.winnerText) {
       overlayEl.style.display = "flex";
       overlayEl.textContent = room.winnerText;
+      audioManager.stopBackground();
     } else {
       overlayEl.style.display = "none";
       overlayEl.textContent = "";
+      if (room.started && !audioManager.backgroundMusic.playing) {
+        audioManager.playBackground();
+      }
+    }
+  });
+
+  window.addEventListener("room-state", (ev) => {
+    const room = ev.detail;
+
+    // Start music when game begins
+    if (room.started && !room.ended) {
+      audioManager.playBackground();
+    }
+    // Stop music when game ends
+    if (room.ended) {
+      audioManager.stopBackground();
     }
   });
 
   window.addEventListener("net-state", (ev) => applyRoom(ev.detail));
-  window.addEventListener("net-timer", (ev) => { if (timerEl) timerEl.textContent = ev.detail; });
+
+  window.addEventListener("net-state", (ev) => applyRoom(ev.detail));
+  window.addEventListener("net-timer", (ev) => {
+    if (timerEl) timerEl.textContent = ev.detail;
+  });
   window.addEventListener("net-gameover", (ev) => {
     overlayEl.style.display = "flex";
     overlayEl.textContent = ev.detail || "Game Over";
+
+    const result = ev.detail || "";
+    if (result.includes("wins")) {
+      if (result.includes(window.NET.myName)) {
+        audioManager.play("victory", 1.0);
+      } else {
+        audioManager.play("defeat", 0.9);
+      }
+    }
   });
 
   window.addEventListener("net-hit", (ev) => {
@@ -305,11 +348,14 @@
     const f = fighters.get(victimId);
     if (!f) return;
 
+    audioManager.play("hit", 0.7);
+
     if (victimDead) {
       if (!f._dead) {
         f._dead = true;
         f._state = "death";
         f.switchSprite("death");
+        audioManager.play("defeat", 0.8);
       }
       return;
     }
@@ -399,14 +445,3 @@
 
   animate();
 })();
-
-
-
-
-
-
-
-
-
-
-
