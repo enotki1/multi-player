@@ -288,7 +288,6 @@
     }
   }
 
-  // ---- NET EVENTS ----
   window.addEventListener("room-state", (ev) => {
     const room = ev.detail;
 
@@ -304,26 +303,11 @@
     } else {
       overlayEl.style.display = "none";
       overlayEl.textContent = "";
-      if (room.started && !audioManager.backgroundMusic.playing) {
+      if (audioManager.backgroundMusic && audioManager.backgroundMusic.paused) {
         audioManager.playBackground();
       }
     }
   });
-
-  window.addEventListener("room-state", (ev) => {
-    const room = ev.detail;
-
-    // Start music when game begins
-    if (room.started && !room.ended) {
-      audioManager.playBackground();
-    }
-    // Stop music when game ends
-    if (room.ended) {
-      audioManager.stopBackground();
-    }
-  });
-
-  window.addEventListener("net-state", (ev) => applyRoom(ev.detail));
 
   window.addEventListener("net-state", (ev) => applyRoom(ev.detail));
   window.addEventListener("net-timer", (ev) => {
