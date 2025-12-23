@@ -1,0 +1,105 @@
+/* ===== Overlay for pause menu ===== */
+.menu-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .menu-overlay.hidden {
+    display: none;
+  }
+  
+  /* ===== Menu panel ===== */
+  .menu-panel {
+    background: #1f1630;
+    padding: 24px 40px;
+    border-radius: 16px;
+    border: 3px solid #f5f5f5;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+    min-width: 260px;
+    text-align: center;
+  }
+  
+  .menu-title {
+    font-size: 24px;
+    margin-bottom: 8px;
+    color: #ffffff;
+  }
+  
+  .menu-info {
+    font-size: 14px;
+    opacity: 0.85;
+    margin-bottom: 16px;
+    color: #dddddd;
+  }
+  
+  /* ===== Buttons container ===== */
+  .menu-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+  
+  /* ===== Generic UI button ===== */
+  .ui-button {
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 2px solid #f5f5f5;
+    background: #4c3c78;
+    color: #ffffff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+  }
+  
+  .ui-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+  }
+  
+  .ui-button:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+  
+  /* ===== Danger / Quit button style ===== */
+  .ui-button.danger {
+    background: #8b2c3a;
+  }
+  
+  /* ===== Pause button in the corner ===== */
+  .pause-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 900;
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  
+  /* ===== System message ("Ann paused the game") ===== */
+  .system-message {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 10, 25, 0.9);
+    color: #f5f5f5;
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 2px solid #f5f5f5;
+    font-size: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1100;
+  }
+  
+  .system-message.visible {
+    opacity: 1;
+  }
+  
