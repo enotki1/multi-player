@@ -51,7 +51,8 @@
 
   const backgrround = new Sprite({
     position: { x: 0, y: 0 },
-    imageSrc: "./img/background.png",
+    //imageSrc: "./img/background.png",
+    imageSrc: "./img/background_new.png",
     el: backgroundEl,
     framesMax: 1,
     scale: 1,
@@ -59,15 +60,14 @@
   });
   backgrround.framesHold = 999999;
 
-  const shop = new Sprite({
-    position: { x: 600, y: 128 },
+  /* const shop = new Sprite({
+    position: { x: 600, y: 150 },
     imageSrc: "./img/shop.png",
     el: shopEl,
     scale: 2.75,
     framesMax: 6,
     offset: { x: 0, y: 0 },
-  });
-
+  }); */
   const fightersLayer = document.getElementById("fightersLayer");
   const p1HealthEl = document.getElementById("p1Health");
   const p2HealthEl = document.getElementById("p2Health");
@@ -104,7 +104,7 @@
         : "./img/kenji/Idle.png",
       framesMax: isSamurai ? 8 : 4,
       scale: 2.5,
-      offset: isSamurai ? { x: 215, y: 155 } : { x: 215, y: 167 },
+      offset: isSamurai ? { x: 215, y: 115 } : { x: 215, y: 129 },
       el,
       attackEl: atk,
       baseFlip: isSamurai ? 1 : -1,
@@ -356,7 +356,7 @@
     requestAnimationFrame(animate);
 
     backgrround.update({ freeze: false });
-    shop.update({ freeze: false });
+    //shop.update({ freeze: false });
 
     for (const f of fighters.values()) {
       // позиция по сети
