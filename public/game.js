@@ -561,8 +561,8 @@
 
       // Idle bobbing (visual only)
       if (coin.vy === 0) {
-        coin.bobPhase += 0.05;
-        coin.y = coin.baseY + Math.sin(coin.bobPhase) * 4;
+        coin.bobPhase += 0.02;
+        coin.y = coin.baseY + Math.sin(coin.bobPhase) * 2;
       }
 
       coin.el.style.left = coin.x + "px";
