@@ -20,6 +20,10 @@ class AudioManager {
     this.loadSound("victory", "./audio/victory.wav");
     this.loadSound("defeat", "./audio/defeat.wav");
 
+    // ❤️ heart-related sounds
+    this.loadSound("heartSpawn", "./audio/powerup.ogg");
+    this.loadSound("heartPickup", "./audio/heart-collect.wav");
+
     this.backgroundMusic = new Audio("./audio/background.wav");
     this.backgroundMusic.loop = true; // Loop when it ends
     this.backgroundMusic.volume = 0.1;
