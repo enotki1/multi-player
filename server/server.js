@@ -40,6 +40,7 @@ const BODY_W = 50;
 const BODY_H = 150;
 
 const DAMAGE = 20;
+const HEART_HEAL_AMOUNT = 15; // heals 15 HP per heart
 const BLOCK_MULT = 0.2;
 
 // ✅ pushback короче: меньше сила + быстрее затухает
@@ -484,6 +485,22 @@ io.on("connection", (socket) => {
       if (!onGround || p.attacking || p.inputs.block) return;
       p.queue.jump = 1;
     }
+  });
+
+  socket.on("coin-pickup", ({ roomId, playerId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const p = room.players.get(playerId);
+    if (!p) return;
+
+    // Heal a chunk of HP (heart pickup)
+    p.health = Math.min(100, p.health + HEART_HEAL_AMOUNT);
+
+    console.log(`[GAME] ${p.name} collected heart! Health: ${p.health}`);
+
+    // Broadcast updated health to all players
+    io.to(roomId).emit("state", roomPublicState(room));
   });
 
   socket.on("disconnect", () => {

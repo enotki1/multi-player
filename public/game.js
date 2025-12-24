@@ -5,6 +5,12 @@
   const BASE_W = 1024;
   const BASE_H = 576;
 
+  // Coin spawn & trajectory tuning
+  const COIN_SPAWN_X = 650; // approx. x of the glowing hole
+  const COIN_SPAWN_Y = 220; // approx. y of the hole
+  const COIN_TARGET_X = BASE_W / 2; // where we want them to land (center)
+  const COIN_FLIGHT_FRAMES = 65; // how long the “throw” lasts in frames
+
   function fitToScreenStable() {
     const layer = document.getElementById("scaleLayer");
     if (!layer) return;
@@ -51,7 +57,8 @@
 
   const backgrround = new Sprite({
     position: { x: 0, y: 0 },
-    imageSrc: "./img/background.png",
+    //imageSrc: "./img/background.png",
+    imageSrc: "./img/background_new.png",
     el: backgroundEl,
     framesMax: 1,
     scale: 1,
@@ -59,15 +66,14 @@
   });
   backgrround.framesHold = 999999;
 
-  const shop = new Sprite({
-    position: { x: 600, y: 128 },
+  /* const shop = new Sprite({
+    position: { x: 600, y: 150 },
     imageSrc: "./img/shop.png",
     el: shopEl,
     scale: 2.75,
     framesMax: 6,
     offset: { x: 0, y: 0 },
-  });
-
+  }); */
   const fightersLayer = document.getElementById("fightersLayer");
   const p1HealthEl = document.getElementById("p1Health");
   const p2HealthEl = document.getElementById("p2Health");
@@ -75,6 +81,93 @@
   const overlayEl = document.getElementById("displayText");
 
   const fighters = new Map();
+
+  // ===== COINS / PICKUPS =====
+  const coins = new Map(); // Track active coins
+  // max hearts allowed on the field at once
+  const MAX_HEARTS_ON_FIELD = 1;
+
+  // updated from room-state
+  let hasWoundedPlayer = false;
+  let isGameActive = false;
+
+  function createCoin(x, y, vx, vy) {
+    const el = document.createElement("div");
+    el.style.position = "absolute";
+    el.style.width = "40px";
+    el.style.height = "40px";
+
+    // Use pixel-art coin image
+    el.style.backgroundImage = 'url("./img/heart.jpg")';
+    el.style.backgroundSize = "contain";
+    el.style.backgroundRepeat = "no-repeat";
+    el.style.backgroundPosition = "center";
+    el.style.imageRendering = "pixelated"; // keep it crisp
+
+    // Remove old circle styles
+    // (no borderRadius, no boxShadow now)
+
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+    el.style.zIndex = "2";
+    fightersLayer.appendChild(el);
+
+    const coinObj = {
+      el,
+      x,
+      y,
+      baseY: y, // remember ground position
+      vx,
+      vy,
+      collected: false,
+      life: 1200,
+      bobPhase: Math.random() * Math.PI * 2, // desync hearts
+    };
+
+    return coinObj;
+  }
+
+  function spawnCoins() {
+    // don’t spawn if game isn’t running
+    if (!isGameActive) return;
+
+    // don’t spawn if nobody needs healing
+    if (!hasWoundedPlayer) return;
+
+    // don’t flood the map
+    if (coins.size >= MAX_HEARTS_ON_FIELD) return;
+
+    // how many can we still add?
+    const remaining = MAX_HEARTS_ON_FIELD - coins.size;
+
+    // 1–2 hearts per wave, but not more than remaining
+    let coinCount = Math.floor(Math.random() * 2) + 1;
+    if (coinCount > remaining) coinCount = remaining;
+    if (coinCount <= 0) return;
+
+    // play soft “appearing” sound once per spawn wave
+    audioManager.play("heartSpawn", 0.6);
+
+    // horizontal speed needed to travel from hole → center in COIN_FLIGHT_FRAMES
+    const baseVx = (COIN_TARGET_X - COIN_SPAWN_X) / COIN_FLIGHT_FRAMES;
+
+    // small upward kick so it makes an arc before falling
+    const baseVy = -6; // negative = up, gravity will pull it down
+
+    for (let i = 0; i < coinCount; i++) {
+      const coin = createCoin(
+        COIN_SPAWN_X + (Math.random() - 0.5) * 10, // tiny spread at spawn
+        COIN_SPAWN_Y + (Math.random() - 0.5) * 10,
+        baseVx + (Math.random() - 0.5) * 0.4, // subtle variation
+        baseVy + (Math.random() - 0.5) * 0.4
+      );
+
+      coins.set(Math.random(), coin);
+    }
+  }
+
+  // Spawn coins every 5 seconds
+  setInterval(spawnCoins, 5000);
 
   function makeFighterDOM() {
     const el = document.createElement("div");
@@ -104,7 +197,7 @@
         : "./img/kenji/Idle.png",
       framesMax: isSamurai ? 8 : 4,
       scale: 2.5,
-      offset: isSamurai ? { x: 215, y: 155 } : { x: 215, y: 167 },
+      offset: isSamurai ? { x: 215, y: 115 } : { x: 215, y: 129 },
       el,
       attackEl: atk,
       baseFlip: isSamurai ? 1 : -1,
@@ -256,6 +349,11 @@
   function applyRoom(room) {
     ensureFighters(room);
 
+    // Check if anyone is wounded (alive + health < 100)
+    hasWoundedPlayer = room.players.some(
+      (p) => !p.dead && typeof p.health === "number" && p.health < 100
+    );
+
     const p1 = room.players.find((p) => p.slot === 1);
     const p2 = room.players.find((p) => p.slot === 2);
     if (p1) p1HealthEl.style.width = `${p1.health}%`;
@@ -291,6 +389,9 @@
   window.addEventListener("room-state", (ev) => {
     const room = ev.detail;
 
+    // update game active flag
+    isGameActive = !!room.started && !room.ended;
+
     if (typeof room.timer === "number" && timerEl)
       timerEl.textContent = room.timer;
 
@@ -300,6 +401,10 @@
       overlayEl.style.display = "flex";
       overlayEl.textContent = room.winnerText;
       audioManager.stopBackground();
+      for (const coin of coins.values()) {
+        coin.el.remove();
+      }
+      coins.clear();
     } else {
       overlayEl.style.display = "none";
       overlayEl.textContent = "";
@@ -356,7 +461,7 @@
     requestAnimationFrame(animate);
 
     backgrround.update({ freeze: false });
-    shop.update({ freeze: false });
+    //shop.update({ freeze: false });
 
     for (const f of fighters.values()) {
       // позиция по сети
@@ -424,6 +529,78 @@
 
       f.animateFrame();
       f.draw();
+    }
+
+    // Update coins
+    for (const [id, coin] of coins.entries()) {
+      if (coin.collected) {
+        coins.delete(id);
+        continue;
+      }
+
+      coin.life--;
+      if (coin.life <= 0) {
+        coin.el.remove();
+        coins.delete(id);
+        continue;
+      }
+
+      // Physics
+      coin.x += coin.vx;
+      coin.y += coin.vy;
+      coin.vy += 0.3; // Gravity
+
+      // Ground collision – stop on the floor
+      const GROUND_Y = 480;
+      if (coin.y >= GROUND_Y) {
+        coin.y = GROUND_Y;
+        coin.vy = 0;
+        coin.vx = 0;
+        coin.baseY = coin.y; // bob around the floor position
+      }
+
+      // Idle bobbing (visual only)
+      if (coin.vy === 0) {
+        coin.bobPhase += 0.02;
+        coin.y = coin.baseY + Math.sin(coin.bobPhase) * 2;
+      }
+
+      coin.el.style.left = coin.x + "px";
+      coin.el.style.top = coin.y + "px";
+
+      // Check collision with fighters
+      for (const [playerId, f] of fighters.entries()) {
+        // use fighter's feet as pickup point
+        const feetX = f.position.x + f.width / 2;
+        const feetY = f.position.y + f.height;
+
+        // use coin center
+        const coinCenterX = coin.x + 16; // 32px / 2
+        const coinCenterY = coin.y + 16;
+
+        const dx = Math.abs(coinCenterX - feetX);
+        const dy = Math.abs(coinCenterY - feetY);
+
+        // pickup zone around the feet
+        if (dx < 60 && dy < 60) {
+          // Heart collected!
+          coin.collected = true;
+          coin.el.remove();
+
+          audioManager.play("heartPickup", 0.9);
+
+          // Emit to server that player picked up heart
+          if (window.NET) {
+            window.NET.socket.emit("coin-pickup", {
+              roomId: window.NET.roomId,
+              playerId, // <-- this is the key in room.players on the server
+            });
+          }
+
+          coins.delete(id);
+          break;
+        }
+      }
     }
   }
 
