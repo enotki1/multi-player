@@ -239,7 +239,13 @@
     f._attacking = false;
 
     // ✅ hard-freeze winner after round end
-    f._winnerFrozen = false;
+    
+    f._srvAttacking = false;      // что говорит сервер сейчас
+f._prevSrvAttacking = false;  // что было на прошлом апдейте
+f._attackAnim = false;        // сейчас проигрываем attack1?
+f._waitRelease = false; 
+f._hitAnim = false; // проигрываем takeHit до конца (локальный лок)
+      // анимацию сыграли, ждём пока сервер отпустит attacking
 
     return f;
   }
@@ -369,10 +375,30 @@
       f._netY = p.y;
 
       f._dead = !!p.dead;
-      f._attacking = room.ended ? false : !!p.attacking;
+      f._prevSrvAttacking = f._srvAttacking;
+f._srvAttacking = (!room.ended && !p.dead) ? !!p.attacking : false;
+
+// rising edge: server started attack => start animation ONCE
+if (f._srvAttacking && !f._prevSrvAttacking) {
+  f._attackAnim = true;
+  f._waitRelease = false;
+  f._state = "attack1";
+  f.switchSprite("attack1");
+}
+
+// if server released attack => allow new attacks later
+if (!f._srvAttacking) {
+  f._waitRelease = false;
+}
+
 
       // ✅ ABSOLUTE FIX: after round end, winner is frozen (no animateFrame)
-      f._winnerFrozen = !!room.ended && !f._dead;
+      if (room.ended && !f._dead) {
+  // победитель: уйти в idle и больше не атаковать
+  f._attacking = false;
+  f._state = "idle";
+  f.switchSprite("idle");
+}
 
       f.setFacing(p.facing);
 
@@ -449,11 +475,17 @@
       return;
     }
 
-    if (f._dead) return;
-    if (isSprite(f, "takeHit") && isAnimPlaying(f, "takeHit")) return;
+   if (f._dead) return;
 
-    f._state = "takeHit";
-    f.switchSprite("takeHit");
+// ✅ сбиваем любые "ожидания атаки", чтобы hit точно показывался
+f._attackAnim = false;
+f._waitRelease = false;
+
+// ✅ запускаем takeHit и лочим его до конца
+f._hitAnim = true;
+f._state = "takeHit";
+f.switchSprite("takeHit");
+
   });
 
   // ======== 60 FPS LOOP ========
@@ -468,12 +500,7 @@
       f.position.x += (f._netX - f.position.x) * 0.35;
       f.position.y = f._netY;
 
-      // ✅ ABSOLUTE FIX:
-      // winner after round end: DO NOT call animateFrame() => nothing can loop
-      if (f._winnerFrozen) {
-        f.draw();
-        continue;
-      }
+     
 
       // death: play once then hold
       if (f._dead) {
@@ -491,27 +518,67 @@
       }
 
       // takeHit: uninterruptible while playing
-      if (isSprite(f, "takeHit") && isAnimPlaying(f, "takeHit")) {
-        f._state = "takeHit";
-        f.animateFrame();
-        f.draw();
-        continue;
-      }
+     // ✅ takeHit: play fully, cannot be overridden by idle/run/jump/fall
+if (f._hitAnim) {
+  if (!isSprite(f, "takeHit")) {
+    f._state = "takeHit";
+    f.switchSprite("takeHit");
+  }
+
+  if (isAnimPlaying(f, "takeHit")) {
+    f.animateFrame();
+    f.draw();
+    continue;
+  }
+
+  // last frame reached -> unlock and go idle
+  f._hitAnim = false;
+  f._state = "idle";
+  f.switchSprite("idle");
+  f.animateFrame();
+  f.draw();
+  continue;
+}
+
 
       // attack: do not loop, hold last frame while server says attacking
-      if (f._attacking) {
-        if (f._state !== "attack1") {
-          f._state = "attack1";
-          f.switchSprite("attack1");
-        }
-        if (isAnimPlaying(f, "attack1")) {
-          f.animateFrame();
-          f.draw();
-        } else {
-          holdLastFrame(f, "attack1");
-        }
-        continue;
-      }
+      // attack animation: play once, then go idle and wait server release (no freeze, no double)
+if (f._attackAnim) {
+  if (f._state !== "attack1") {
+    f._state = "attack1";
+    f.switchSprite("attack1");
+  }
+
+  if (isAnimPlaying(f, "attack1")) {
+    f.animateFrame();
+    f.draw();
+    continue;
+  }
+
+  // animation finished
+  f._attackAnim = false;
+  f._waitRelease = true;
+
+  // go idle immediately (so it doesn't "stick" on last attack frame)
+  f._state = "idle";
+  f.switchSprite("idle");
+  f.animateFrame();
+  f.draw();
+  continue;
+}
+
+// while server still says attacking=true, do NOT restart attack1
+// just stay idle until server releases attacking=false
+if (f._waitRelease && f._srvAttacking) {
+  if (f._state !== "idle") {
+    f._state = "idle";
+    f.switchSprite("idle");
+  }
+  f.animateFrame();
+  f.draw();
+  continue;
+}
+
 
       // normal state selection
       const dx = f._netX - f._lastNetX;

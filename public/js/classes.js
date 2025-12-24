@@ -216,80 +216,71 @@ class Fighter extends Sprite {
     else this.switchSprite('takeHit');
   }
 
-  switchSprite(sprite) {
-    // death lock
-    if (this.sprites?.death && this.image === this.sprites.death.image) {
-      if (this.frameCurrent === this.sprites.death.framesMax - 1) this.dead = true;
-      return;
+switchSprite(sprite) {
+  // ===== 1. DEATH: абсолютный приоритет =====
+  if (this.sprites?.death && this.image === this.sprites.death.image) {
+    if (this.frameCurrent === this.sprites.death.framesMax - 1) {
+      this.dead = true;
     }
-
-    // death priority + DOM update
-    if (sprite === 'death') {
-      const s = this.sprites.death;
-      if (!s) return;
-
-      if (this.image !== s.image) {
-        this.image = s.image;
-        this.framesMax = s.framesMax;
-        this.frameCurrent = 0;
-        this.framesElapsed = 0;
-
-        this.sheetEl.style.backgroundImage = `url("${s.imageSrc}")`;
-
-        const applySizing = () => {
-          const frameW = s.image.width / s.framesMax;
-          const frameH = s.image.height;
-          this.frameWidth = frameW;
-          this.frameHeight = frameH;
-
-          this.sheetEl.style.width = `${frameW * this.scale}px`;
-          this.sheetEl.style.height = `${frameH * this.scale}px`;
-          this.sheetEl.style.backgroundSize =
-            `${s.image.width * this.scale}px ${s.image.height * this.scale}px`;
-        };
-
-        if (s.image.complete) applySizing();
-        else s.image.onload = applySizing;
-      }
-      return;
-    }
-
-    // attack lock
-    if (this.image === this.sprites.attack1.image &&
-        this.frameCurrent < this.sprites.attack1.framesMax - 1) return;
-
-    // takeHit lock
-    if (this.image === this.sprites.takeHit.image &&
-        this.frameCurrent < this.sprites.takeHit.framesMax - 1) return;
-
-    const s = this.sprites[sprite];
-    if (!s) return;
-
-    if (this.image !== s.image) {
-      this.image = s.image;
-      this.framesMax = s.framesMax;
-      this.frameCurrent = 0;
-      this.framesElapsed = 0;
-
-      this.sheetEl.style.backgroundImage = `url("${s.imageSrc}")`;
-
-      const applySizing = () => {
-        const frameW = s.image.width / s.framesMax;
-        const frameH = s.image.height;
-
-        this.frameWidth = frameW;
-        this.frameHeight = frameH;
-
-        this.sheetEl.style.width = `${frameW * this.scale}px`;
-        this.sheetEl.style.height = `${frameH * this.scale}px`;
-        this.sheetEl.style.backgroundSize =
-          `${s.image.width * this.scale}px ${s.image.height * this.scale}px`;
-      };
-
-      if (s.image.complete) applySizing();
-      else s.image.onload = applySizing;
-    }
+    return;
   }
+
+  if (sprite === "death") {
+    const s = this.sprites.death;
+    if (!s) return;
+    this._applySprite(s);
+    return;
+  }
+
+  // ===== 2. TAKE HIT: может перебить АТАКУ =====
+  if (
+    this.image === this.sprites?.takeHit?.image &&
+    this.frameCurrent < this.sprites.takeHit.framesMax - 1
+  ) {
+    return; // takeHit нельзя перебить ничем (кроме death)
+  }
+
+  // ===== 3. ATTACK: НЕ блокирует takeHit =====
+  if (
+    this.image === this.sprites?.attack1?.image &&
+    this.frameCurrent < this.sprites.attack1.framesMax - 1
+  ) {
+    if (sprite !== "takeHit") return;
+    // если sprite === takeHit → РАЗРЕШАЕМ переключение
+  }
+
+  // ===== 4. NORMAL SWITCH =====
+  const s = this.sprites?.[sprite];
+  if (!s) return;
+  if (this.image === s.image) return;
+
+  this._applySprite(s);
+}
+_applySprite(s) {
+  this.image = s.image;
+  this.framesMax = s.framesMax;
+  this.frameCurrent = 0;
+  this.framesElapsed = 0;
+
+  this.sheetEl.style.backgroundImage = `url("${s.imageSrc}")`;
+
+  const applySizing = () => {
+    const frameW = s.image.width / s.framesMax;
+    const frameH = s.image.height;
+
+    this.frameWidth = frameW;
+    this.frameHeight = frameH;
+
+    this.sheetEl.style.width = `${frameW * this.scale}px`;
+    this.sheetEl.style.height = `${frameH * this.scale}px`;
+    this.sheetEl.style.backgroundSize =
+      `${s.image.width * this.scale}px ${s.image.height * this.scale}px`;
+  };
+
+  if (s.image.complete) applySizing();
+  else s.image.onload = applySizing;
+}
+
 }
 
 

@@ -447,7 +447,7 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("room-state", roomPublicState(room));
 
     if (!room.started && !room.ended) {
-      if (room.players.size >= 1) {
+      if (room.players.size == 2) {
         startRound(room);
       }
     }

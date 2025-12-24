@@ -9,7 +9,11 @@
     }
   
     function createMenuDOM() {
-      const parent = document.getElementById("viewport") || document.body;
+      const parent = document.getElementById("gameRoot") 
+  || document.getElementById("scaleLayer") 
+  || document.getElementById("viewport") 
+  || document.body;
+
   
       // Pause button in the corner
       const pauseBtn = document.createElement("button");
