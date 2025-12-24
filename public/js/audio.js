@@ -27,6 +27,16 @@ class AudioManager {
     this.backgroundMusic = new Audio("./audio/background.wav");
     this.backgroundMusic.loop = true; // Loop when it ends
     this.backgroundMusic.volume = 0.1;
+
+    this.tieMusic = new Audio("./audio/tie.wav");
+    this.tieMusic.loop = false;
+    this.tieMusic.volume = 0.5;
+
+    this.pauseMusic = new Audio("./audio/hold.wav"); // You'll need to add this file
+    this.pauseMusic.loop = true;
+    this.pauseMusic.volume = 0.3;
+
+    this.currentTrack = null; // Track what's currently playing
   }
 
   play(name, volume = 1) {
@@ -43,6 +53,14 @@ class AudioManager {
     this.isMuted = false;
   }
 
+  setMuted(muted) {
+    if (muted) {
+      this.mute();
+    } else {
+      this.unmute();
+    }
+  }
+
   playBackground() {
     if (this.isMuted || !this.backgroundMusic) return;
     this.backgroundMusic.volume = 0.4;
@@ -52,9 +70,7 @@ class AudioManager {
   }
 
   stopBackground() {
-    if (!this.backgroundMusic) return;
-    this.backgroundMusic.pause();
-    this.backgroundMusic.currentTime = 0; // Reset to start
+    this.stopAll();
   }
 
   setBackgroundVolume(volume) {
@@ -62,13 +78,51 @@ class AudioManager {
       this.backgroundMusic.volume = Math.min(1, Math.max(0, volume));
     }
   }
+
+  playTie() {
+    this.stopAll();
+    if (this.isMuted || !this.tieMusic) return;
+    this.currentTrack = this.tieMusic;
+    this.tieMusic.currentTime = 0;
+    this.tieMusic.play().catch((e) => console.log("Tie music failed:", e));
+  }
+
+  playPause() {
+    this.stopAll();
+    if (this.isMuted || !this.pauseMusic) return;
+    this.currentTrack = this.pauseMusic;
+    this.pauseMusic.currentTime = 0;
+    this.pauseMusic.play().catch((e) => console.log("Pause music failed:", e));
+  }
+
+  stopAll() {
+    if (this.backgroundMusic) {
+      this.backgroundMusic.pause();
+    }
+    if (this.tieMusic) {
+      this.tieMusic.pause();
+    }
+    if (this.pauseMusic) {
+      this.pauseMusic.pause();
+    }
+    this.currentTrack = null;
+  }
+
+  resumeBackground() {
+    this.stopAll();
+    this.playBackground();
+  }
 }
 
 const audioManager = new AudioManager();
 audioManager.loadSounds();
 
+window.audioManager = audioManager;
+
 document.addEventListener("menu:muteToggle", (event) => {
   const { isMuted } = event.detail;
+
+  console.log("[AUDIO] Mute toggle:", isMuted);
 
   if (isMuted) {
     audioManager.mute();

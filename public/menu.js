@@ -2,172 +2,195 @@
 // Responsible only for DOM elements and UI events.
 
 (function () {
-    let isMenuOpen = false;
-    let isMuted = false;
+  let isMenuOpen = false;
+  let isMuted = false;
 
-  
-    function getEl(id) {
-      return document.getElementById(id);
-    }
-  
-    function createMenuDOM() {
-      const parent = document.getElementById("gameRoot") 
-  || document.getElementById("scaleLayer") 
-  || document.getElementById("viewport") 
-  || document.body;
+  function getEl(id) {
+    return document.getElementById(id);
+  }
 
-  
-      // Pause button in the corner
-      const pauseBtn = document.createElement("button");
-      pauseBtn.id = "pause-button";
-      pauseBtn.className = "ui-button pause-button";
-      pauseBtn.textContent = "Pause";
+  function createMenuDOM() {
+    const parent =
+      document.getElementById("gameRoot") ||
+      document.getElementById("scaleLayer") ||
+      document.getElementById("viewport") ||
+      document.body;
 
-      // Mute button (smaller, same style theme)
-const soundBtn = document.createElement("button");
-soundBtn.id = "sound-button";
-soundBtn.className = "sound-button";
-soundBtn.textContent = "MUTE";
+    // Pause button in the corner
+    const pauseBtn = document.createElement("button");
+    pauseBtn.id = "pause-button";
+    pauseBtn.className = "ui-button pause-button";
+    pauseBtn.textContent = "Pause";
 
-  
-      // Overlay container
-      const overlay = document.createElement("div");
-      overlay.id = "menu-overlay";
-      overlay.className = "menu-overlay hidden";
-  
-      // Menu panel
-      const panel = document.createElement("div");
-      panel.className = "menu-panel";
-  
-      const title = document.createElement("h2");
-      title.id = "menu-title";
-      title.className = "menu-title";
-      title.textContent = "Game Paused";
-  
-      const info = document.createElement("p");
-      info.id = "menu-info";
-      info.className = "menu-info";
-      info.textContent = "Press resume to continue";
-  
-      // Buttons row
-      const buttons = document.createElement("div");
-      buttons.className = "menu-buttons";
-  
-      const resumeBtn = document.createElement("button");
-      resumeBtn.id = "resume-button";
-      resumeBtn.className = "ui-button";
-      resumeBtn.textContent = "Resume";
-  
-      const quitBtn = document.createElement("button");
-      quitBtn.id = "quit-button";
-      quitBtn.className = "ui-button danger";
-      quitBtn.textContent = "Quit";
-  
-      buttons.appendChild(resumeBtn);
-      buttons.appendChild(quitBtn);
-  
-      panel.appendChild(title);
-      panel.appendChild(info);
-      panel.appendChild(buttons);
-  
-      overlay.appendChild(panel);
-  
-      // System message (e.g. "Ann paused the game")
-      const systemMsg = document.createElement("div");
-      systemMsg.id = "system-message";
-      systemMsg.className = "system-message hidden";
-  
-      // Attach everything to the game viewport
-      parent.appendChild(pauseBtn);
-      parent.appendChild(soundBtn);
-      parent.appendChild(overlay);
-      parent.appendChild(systemMsg);
-      
-  
-      // UI event listeners – they dispatch custom events and update local UI
-      pauseBtn.addEventListener("click", () => {
-        MenuUI.openMenu("Game paused");
-        MenuUI.showSystemMessage("You paused the game");
-        const ev = new CustomEvent("menu:pauseRequest");
-        document.dispatchEvent(ev);
-      });
-      soundBtn.addEventListener("click", () => {
-        isMuted = !isMuted;
-        soundBtn.textContent = isMuted ? "MUTED" : "MUTE";
-      
-        // Notify the rest of the app about mute toggle
-        const ev = new CustomEvent("menu:muteToggle", {
-          detail: { isMuted },
-        });
-        document.dispatchEvent(ev);
-      
-        // Basic fallback: mute all <audio> elements on the page
-        const audioElements = document.querySelectorAll("audio");
-        audioElements.forEach((audio) => {
-          audio.muted = isMuted;
-        });
-      });
-      
-  
-      resumeBtn.addEventListener("click", () => {
-        MenuUI.closeMenu();
-        MenuUI.showSystemMessage("You resumed the game");
-        const ev = new CustomEvent("menu:resumeRequest");
-        document.dispatchEvent(ev);
-      });
-  
-      quitBtn.addEventListener("click", () => {
-        MenuUI.showSystemMessage("You quit the game");
-        const ev = new CustomEvent("menu:quitRequest");
-        document.dispatchEvent(ev);
-      });
-    }
-  
-    const MenuUI = {
-      openMenu(text) {
-        const overlay = getEl("menu-overlay");
-        const info = getEl("menu-info");
-        if (!overlay) return;
-        if (text && info) {
-          info.textContent = text;
-        }
-        overlay.classList.remove("hidden");
-        isMenuOpen = true;
-      },
-  
-      closeMenu() {
-        const overlay = getEl("menu-overlay");
-        if (!overlay) return;
-        overlay.classList.add("hidden");
-        isMenuOpen = false;
-      },
-  
-      isOpen() {
-        return isMenuOpen;
-      },
-  
-      showSystemMessage(text, timeout = 2000) {
-        const msg = getEl("system-message");
-        if (!msg) return;
-  
-        msg.textContent = text;
-        msg.classList.remove("hidden");
-        msg.classList.add("visible");
-  
-        clearTimeout(msg._hideTimer);
-        msg._hideTimer = setTimeout(() => {
-          msg.classList.remove("visible");
-          msg.classList.add("hidden");
-        }, timeout);
-      },
-    };
-  
-    // Expose to other client scripts (game.js, net.js)
-    window.MenuUI = MenuUI;
-  
-    document.addEventListener("DOMContentLoaded", () => {
-      console.log("menu DOM init");
-      createMenuDOM();
+    // Mute button (smaller, same style theme)
+    const soundBtn = document.createElement("button");
+    soundBtn.id = "sound-button";
+    soundBtn.className = "sound-button";
+    soundBtn.textContent = "MUTE";
+
+    // Overlay container
+    const overlay = document.createElement("div");
+    overlay.id = "menu-overlay";
+    overlay.className = "menu-overlay hidden";
+
+    // Menu panel
+    const panel = document.createElement("div");
+    panel.className = "menu-panel";
+
+    const title = document.createElement("h2");
+    title.id = "menu-title";
+    title.className = "menu-title";
+    title.textContent = "Game Paused";
+
+    const info = document.createElement("p");
+    info.id = "menu-info";
+    info.className = "menu-info";
+    info.textContent = "Press resume to continue";
+
+    // Buttons row
+    const buttons = document.createElement("div");
+    buttons.className = "menu-buttons";
+
+    const resumeBtn = document.createElement("button");
+    resumeBtn.id = "resume-button";
+    resumeBtn.className = "ui-button";
+    resumeBtn.textContent = "Resume";
+
+    const quitBtn = document.createElement("button");
+    quitBtn.id = "quit-button";
+    quitBtn.className = "ui-button danger";
+    quitBtn.textContent = "Quit";
+
+    buttons.appendChild(resumeBtn);
+    buttons.appendChild(quitBtn);
+
+    panel.appendChild(title);
+    panel.appendChild(info);
+    panel.appendChild(buttons);
+
+    overlay.appendChild(panel);
+
+    // System message (e.g. "Ann paused the game")
+    const systemMsg = document.createElement("div");
+    systemMsg.id = "system-message";
+    systemMsg.className = "system-message hidden";
+
+    // Attach everything to the game viewport
+    parent.appendChild(pauseBtn);
+    parent.appendChild(soundBtn);
+    parent.appendChild(overlay);
+    parent.appendChild(systemMsg);
+
+    // UI event listeners – they dispatch custom events and update local UI
+    pauseBtn.addEventListener("click", () => {
+      MenuUI.openMenu("Game paused");
+      MenuUI.showSystemMessage("You paused the game");
+
+      // Play pause music
+      if (window.audioManager) {
+        window.audioManager.playPause();
+      }
+      const ev = new CustomEvent("menu:pauseRequest");
+      document.dispatchEvent(ev);
     });
-  })();
-  
+
+    // Helper function to toggle mute
+    function toggleMute() {
+      isMuted = !isMuted;
+      soundBtn.textContent = isMuted ? "MUTED" : "MUTE";
+
+      // Dispatch event for audio.js
+      const ev = new CustomEvent("menu:muteToggle", {
+        detail: { isMuted },
+      });
+      document.dispatchEvent(ev);
+
+      // Show feedback
+      MenuUI.showSystemMessage(
+        isMuted ? "Sound muted (M)" : "Sound unmuted (M)",
+        1500
+      );
+    }
+
+    soundBtn.addEventListener("click", () => {
+      toggleMute();
+    });
+
+    // Listen for keyboard mute toggle (triggered by M key in game.js)
+    document.addEventListener("menu:muteToggle", (e) => {
+      // If already toggled by keyboard, sync button state
+      if (e.detail?.isMuted !== undefined && e.detail.isMuted !== isMuted) {
+        isMuted = e.detail.isMuted;
+        soundBtn.textContent = isMuted ? "MUTED" : "MUTE";
+        MenuUI.showSystemMessage(
+          isMuted ? "Sound muted (M)" : "Sound unmuted (M)",
+          1500
+        );
+      }
+    });
+
+    resumeBtn.addEventListener("click", () => {
+      MenuUI.closeMenu();
+      MenuUI.showSystemMessage("You resumed the game");
+      // Resume background music
+      if (window.audioManager) {
+        window.audioManager.resumeBackground();
+      }
+      const ev = new CustomEvent("menu:resumeRequest");
+      document.dispatchEvent(ev);
+    });
+
+    quitBtn.addEventListener("click", () => {
+      MenuUI.showSystemMessage("You quit the game");
+      const ev = new CustomEvent("menu:quitRequest");
+      document.dispatchEvent(ev);
+    });
+  }
+
+  const MenuUI = {
+    openMenu(text) {
+      const overlay = getEl("menu-overlay");
+      const info = getEl("menu-info");
+      if (!overlay) return;
+      if (text && info) {
+        info.textContent = text;
+      }
+      overlay.classList.remove("hidden");
+      isMenuOpen = true;
+    },
+
+    closeMenu() {
+      const overlay = getEl("menu-overlay");
+      if (!overlay) return;
+      overlay.classList.add("hidden");
+      isMenuOpen = false;
+    },
+
+    isOpen() {
+      return isMenuOpen;
+    },
+
+    showSystemMessage(text, timeout = 2000) {
+      const msg = getEl("system-message");
+      if (!msg) return;
+
+      msg.textContent = text;
+      msg.classList.remove("hidden");
+      msg.classList.add("visible");
+
+      clearTimeout(msg._hideTimer);
+      msg._hideTimer = setTimeout(() => {
+        msg.classList.remove("visible");
+        msg.classList.add("hidden");
+      }, timeout);
+    },
+  };
+
+  // Expose to other client scripts (game.js, net.js)
+  window.MenuUI = MenuUI;
+
+  document.addEventListener("DOMContentLoaded", () => {
+    console.log("menu DOM init");
+    createMenuDOM();
+  });
+})();

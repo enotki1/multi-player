@@ -85,10 +85,10 @@
   // ===== COINS / PICKUPS =====
   const coins = new Map(); // Track active coins
   // max hearts allowed on the field at once
-  const MAX_HEARTS_ON_FIELD = 1;
+  const MAX_HEARTS_ON_FIELD = 2;
 
   // updated from room-state
-  let hasWoundedPlayer = false;
+  //undedPlayer = false;
   let isGameActive = false;
 
   function createCoin(x, y, vx, vy) {
@@ -135,7 +135,7 @@
     if (!hasWoundedPlayer) return;
 
     // don’t flood the map
-    if (coins.size >= MAX_HEARTS_ON_FIELD) return;
+    if (coins.size > 0) return;
 
     // how many can we still add?
     const remaining = MAX_HEARTS_ON_FIELD - coins.size;
@@ -167,7 +167,7 @@
   }
 
   // Spawn coins every 5 seconds
-  setInterval(spawnCoins, 5000);
+  //setInterval(spawnCoins, 5000);
 
   function makeFighterDOM() {
     const el = document.createElement("div");
@@ -239,13 +239,13 @@
     f._attacking = false;
 
     // ✅ hard-freeze winner after round end
-    
-    f._srvAttacking = false;      // что говорит сервер сейчас
-f._prevSrvAttacking = false;  // что было на прошлом апдейте
-f._attackAnim = false;        // сейчас проигрываем attack1?
-f._waitRelease = false; 
-f._hitAnim = false; // проигрываем takeHit до конца (локальный лок)
-      // анимацию сыграли, ждём пока сервер отпустит attacking
+
+    f._srvAttacking = false; // что говорит сервер сейчас
+    f._prevSrvAttacking = false; // что было на прошлом апдейте
+    f._attackAnim = false; // сейчас проигрываем attack1?
+    f._waitRelease = false;
+    f._hitAnim = false; // проигрываем takeHit до конца (локальный лок)
+    // анимацию сыграли, ждём пока сервер отпустит attacking
 
     return f;
   }
@@ -320,15 +320,25 @@ f._hitAnim = false; // проигрываем takeHit до конца (лока�
       case "Shift":
         keys.block = true;
         sendInput();
-        audioManager.play("block", 0.5);
+        if (isGameActive) audioManager.play("block", 0.5);
         return;
       case "w":
         sendAction("jump");
-        audioManager.play("jump", 0.6);
+        if (isGameActive) audioManager.play("jump", 0.6);
         return;
       case " ":
         sendAction("attack");
-        audioManager.play("punch", 0.8);
+        if (isGameActive) audioManager.play("punch", 0.8);
+        return;
+      case "m":
+      case "M":
+        // Toggle mute with M key
+        const currentMuted = audioManager.isMuted;
+        document.dispatchEvent(
+          new CustomEvent("menu:muteToggle", {
+            detail: { isMuted: !currentMuted },
+          })
+        );
         return;
     }
   });
@@ -346,7 +356,7 @@ f._hitAnim = false; // проигрываем takeHit до конца (лока�
       case "Shift":
         keys.block = false;
         sendInput();
-        audioManager.play("block", 0.3);
+        if (isGameActive) audioManager.play("block", 0.3);
         return;
     }
   });
@@ -356,9 +366,9 @@ f._hitAnim = false; // проигрываем takeHit до конца (лока�
     ensureFighters(room);
 
     // Check if anyone is wounded (alive + health < 100)
-    hasWoundedPlayer = room.players.some(
-      (p) => !p.dead && typeof p.health === "number" && p.health < 100
-    );
+    //hasWoundedPlayer = room.players.some(
+    //  (p) => !p.dead && typeof p.health === "number" && p.health < 100
+    //);
 
     const p1 = room.players.find((p) => p.slot === 1);
     const p2 = room.players.find((p) => p.slot === 2);
@@ -376,29 +386,28 @@ f._hitAnim = false; // проигрываем takeHit до конца (лока�
 
       f._dead = !!p.dead;
       f._prevSrvAttacking = f._srvAttacking;
-f._srvAttacking = (!room.ended && !p.dead) ? !!p.attacking : false;
+      f._srvAttacking = !room.ended && !p.dead ? !!p.attacking : false;
 
-// rising edge: server started attack => start animation ONCE
-if (f._srvAttacking && !f._prevSrvAttacking) {
-  f._attackAnim = true;
-  f._waitRelease = false;
-  f._state = "attack1";
-  f.switchSprite("attack1");
-}
+      // rising edge: server started attack => start animation ONCE
+      if (f._srvAttacking && !f._prevSrvAttacking) {
+        f._attackAnim = true;
+        f._waitRelease = false;
+        f._state = "attack1";
+        f.switchSprite("attack1");
+      }
 
-// if server released attack => allow new attacks later
-if (!f._srvAttacking) {
-  f._waitRelease = false;
-}
-
+      // if server released attack => allow new attacks later
+      if (!f._srvAttacking) {
+        f._waitRelease = false;
+      }
 
       // ✅ ABSOLUTE FIX: after round end, winner is frozen (no animateFrame)
       if (room.ended && !f._dead) {
-  // победитель: уйти в idle и больше не атаковать
-  f._attacking = false;
-  f._state = "idle";
-  f.switchSprite("idle");
-}
+        // победитель: уйти в idle и больше не атаковать
+        f._attacking = false;
+        f._state = "idle";
+        f.switchSprite("idle");
+      }
 
       f.setFacing(p.facing);
 
@@ -426,7 +435,14 @@ if (!f._srvAttacking) {
     if (room.ended && room.winnerText) {
       overlayEl.style.display = "flex";
       overlayEl.textContent = room.winnerText;
-      audioManager.stopBackground();
+
+      // Play tie music if it's a tie, otherwise stop all music
+      if (room.winnerText.toLowerCase().includes("tie")) {
+        audioManager.playTie();
+      } else {
+        audioManager.stopBackground();
+      }
+
       for (const coin of coins.values()) {
         coin.el.remove();
       }
@@ -439,6 +455,37 @@ if (!f._srvAttacking) {
       }
     }
   });
+
+  window.addEventListener("net-heart-spawn", (ev) => {
+    const { heartId, x, y, flightFrames } = ev.detail;
+
+    // Create heart with arc trajectory
+    const baseVx = (512 - x) / flightFrames; // COIN_TARGET_X - COIN_SPAWN_X
+    const baseVy = -6;
+
+    const coin = createCoin(
+      x + (Math.random() - 0.5) * 10,
+      y + (Math.random() - 0.5) * 10,
+      baseVx + (Math.random() - 0.5) * 0.4,
+      baseVy + (Math.random() - 0.5) * 0.4
+    );
+
+    coin.serverId = heartId; // Track server ID
+    coins.set(heartId, coin);
+
+    audioManager.play("heartSpawn", 0.6);
+  });
+
+  (() => {
+    const socket = window.NET?.socket;
+    if (!socket) return;
+
+    socket.on("heart-spawn", (data) => {
+      window.dispatchEvent(
+        new CustomEvent("net-heart-spawn", { detail: data })
+      );
+    });
+  })();
 
   window.addEventListener("net-state", (ev) => applyRoom(ev.detail));
   window.addEventListener("net-timer", (ev) => {
@@ -475,17 +522,16 @@ if (!f._srvAttacking) {
       return;
     }
 
-   if (f._dead) return;
+    if (f._dead) return;
 
-// ✅ сбиваем любые "ожидания атаки", чтобы hit точно показывался
-f._attackAnim = false;
-f._waitRelease = false;
+    // ✅ сбиваем любые "ожидания атаки", чтобы hit точно показывался
+    f._attackAnim = false;
+    f._waitRelease = false;
 
-// ✅ запускаем takeHit и лочим его до конца
-f._hitAnim = true;
-f._state = "takeHit";
-f.switchSprite("takeHit");
-
+    // ✅ запускаем takeHit и лочим его до конца
+    f._hitAnim = true;
+    f._state = "takeHit";
+    f.switchSprite("takeHit");
   });
 
   // ======== 60 FPS LOOP ========
@@ -499,8 +545,6 @@ f.switchSprite("takeHit");
       // позиция по сети
       f.position.x += (f._netX - f.position.x) * 0.35;
       f.position.y = f._netY;
-
-     
 
       // death: play once then hold
       if (f._dead) {
@@ -518,67 +562,65 @@ f.switchSprite("takeHit");
       }
 
       // takeHit: uninterruptible while playing
-     // ✅ takeHit: play fully, cannot be overridden by idle/run/jump/fall
-if (f._hitAnim) {
-  if (!isSprite(f, "takeHit")) {
-    f._state = "takeHit";
-    f.switchSprite("takeHit");
-  }
+      // ✅ takeHit: play fully, cannot be overridden by idle/run/jump/fall
+      if (f._hitAnim) {
+        if (!isSprite(f, "takeHit")) {
+          f._state = "takeHit";
+          f.switchSprite("takeHit");
+        }
 
-  if (isAnimPlaying(f, "takeHit")) {
-    f.animateFrame();
-    f.draw();
-    continue;
-  }
+        if (isAnimPlaying(f, "takeHit")) {
+          f.animateFrame();
+          f.draw();
+          continue;
+        }
 
-  // last frame reached -> unlock and go idle
-  f._hitAnim = false;
-  f._state = "idle";
-  f.switchSprite("idle");
-  f.animateFrame();
-  f.draw();
-  continue;
-}
-
+        // last frame reached -> unlock and go idle
+        f._hitAnim = false;
+        f._state = "idle";
+        f.switchSprite("idle");
+        f.animateFrame();
+        f.draw();
+        continue;
+      }
 
       // attack: do not loop, hold last frame while server says attacking
       // attack animation: play once, then go idle and wait server release (no freeze, no double)
-if (f._attackAnim) {
-  if (f._state !== "attack1") {
-    f._state = "attack1";
-    f.switchSprite("attack1");
-  }
+      if (f._attackAnim) {
+        if (f._state !== "attack1") {
+          f._state = "attack1";
+          f.switchSprite("attack1");
+        }
 
-  if (isAnimPlaying(f, "attack1")) {
-    f.animateFrame();
-    f.draw();
-    continue;
-  }
+        if (isAnimPlaying(f, "attack1")) {
+          f.animateFrame();
+          f.draw();
+          continue;
+        }
 
-  // animation finished
-  f._attackAnim = false;
-  f._waitRelease = true;
+        // animation finished
+        f._attackAnim = false;
+        f._waitRelease = true;
 
-  // go idle immediately (so it doesn't "stick" on last attack frame)
-  f._state = "idle";
-  f.switchSprite("idle");
-  f.animateFrame();
-  f.draw();
-  continue;
-}
+        // go idle immediately (so it doesn't "stick" on last attack frame)
+        f._state = "idle";
+        f.switchSprite("idle");
+        f.animateFrame();
+        f.draw();
+        continue;
+      }
 
-// while server still says attacking=true, do NOT restart attack1
-// just stay idle until server releases attacking=false
-if (f._waitRelease && f._srvAttacking) {
-  if (f._state !== "idle") {
-    f._state = "idle";
-    f.switchSprite("idle");
-  }
-  f.animateFrame();
-  f.draw();
-  continue;
-}
-
+      // while server still says attacking=true, do NOT restart attack1
+      // just stay idle until server releases attacking=false
+      if (f._waitRelease && f._srvAttacking) {
+        if (f._state !== "idle") {
+          f._state = "idle";
+          f.switchSprite("idle");
+        }
+        f.animateFrame();
+        f.draw();
+        continue;
+      }
 
       // normal state selection
       const dx = f._netX - f._lastNetX;
@@ -661,6 +703,7 @@ if (f._waitRelease && f._srvAttacking) {
             window.NET.socket.emit("coin-pickup", {
               roomId: window.NET.roomId,
               playerId, // <-- this is the key in room.players on the server
+              heartId: id, // <-- send the heart ID so server can track it
             });
           }
 

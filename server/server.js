@@ -271,6 +271,12 @@ function applyHit(attacker, victim) {
 
   if (victim.health <= 0) victim.dead = true;
 
+  // Track last hit time for heart spawn delay
+  const room = rooms.get(attacker.roomId);
+  if (room && heartSpawns.has(room.id)) {
+    heartSpawns.get(room.id).lastHitTime = Date.now();
+  }
+
   io.to(attacker.roomId).emit("hit", {
     attackerId: attacker.id,
     victimId: victim.id,
@@ -389,6 +395,111 @@ function tickRoom(room) {
   }
 }
 
+// =============== HEART SPAWNING ================
+const heartSpawns = new Map(); // track spawning state per room
+const activeHearts = new Map(); // track individual hearts per room
+
+const HEART_SPAWN_INTERVAL = 5000; // 5 seconds
+const HEART_LIFETIME = 1200 * (1000 / 60); // 1200 frames at 60fps = ~20 seconds
+const HEART_SPAWN_X = 650;
+const HEART_SPAWN_Y = 220;
+const HEART_FLIGHT_FRAMES = 65;
+
+function checkAndSpawnHearts(room) {
+  // Only spawn during active game
+  if (!room.started || room.ended) return;
+
+  // Initialize spawn tracker for this room if needed
+  if (!heartSpawns.has(room.id)) {
+    heartSpawns.set(room.id, {
+      lastSpawnTime: Date.now(),
+      lastHitTime: 0,
+    });
+  }
+
+  if (!activeHearts.has(room.id)) {
+    activeHearts.set(room.id, new Map());
+  }
+
+  const spawn = heartSpawns.get(room.id);
+  const hearts = activeHearts.get(room.id);
+  const now = Date.now();
+
+  // Clean up expired hearts
+  for (const [heartId, heartData] of hearts.entries()) {
+    if (now - heartData.spawnTime > HEART_LIFETIME) {
+      hearts.delete(heartId);
+      console.log(
+        `[HEARTS] Heart ${heartId} despawned naturally in ${room.id}`
+      );
+    }
+  }
+
+  // Check if enough time has passed since last spawn
+  const HEART_SPAWN_DELAY = 2000; // 2 seconds after hit
+  if (spawn.lastHitTime && now - spawn.lastHitTime < HEART_SPAWN_DELAY) return;
+
+  // Check if any hearts still exist
+  if (hearts.size > 0) return;
+
+  // Count wounded players
+  const players = [...room.players.values()];
+  const wounded = players.filter((p) => !p.dead && p.health < 100);
+
+  if (wounded.length === 0) return;
+
+  // Determine how many hearts to spawn based on wound severity
+  let heartsToSpawn = 1;
+
+  // Spawn 2 hearts if multiple players wounded OR someone critically wounded (<50 HP)
+  const criticallyWounded = wounded.some((p) => p.health < 50);
+  if (wounded.length > 1 || criticallyWounded) {
+    heartsToSpawn = 2;
+  }
+
+  // SPAWN HEARTS
+  spawn.lastSpawnTime = now;
+
+  for (let i = 0; i < heartsToSpawn; i++) {
+    // Spread hearts horizontally if spawning multiple
+    const offsetX = heartsToSpawn > 1 ? (i - 0.5) * 60 : 0; // 60px apart
+
+    const heartData = {
+      id: `${room.id}-${now}-${i}`,
+      spawnTime: now,
+      x: HEART_SPAWN_X + offsetX,
+      y: HEART_SPAWN_Y,
+    };
+
+    hearts.set(heartData.id, heartData);
+
+    console.log(
+      `[HEARTS] Spawned heart ${heartData.id} in ${room.id} (${
+        i + 1
+      }/${heartsToSpawn})`
+    );
+
+    // Broadcast to both clients
+    io.to(room.id).emit("heart-spawn", {
+      heartId: heartData.id,
+      x: heartData.x,
+      y: heartData.y,
+      flightFrames: HEART_FLIGHT_FRAMES,
+    });
+  }
+}
+
+// Listen for heart pickup and remove from tracking
+function onHeartPickedUp(room, heartId) {
+  if (activeHearts.has(room.id)) {
+    const hearts = activeHearts.get(room.id);
+    if (hearts.has(heartId)) {
+      hearts.delete(heartId);
+      console.log(`[HEARTS] Heart ${heartId} picked up in ${room.id}`);
+    }
+  }
+}
+
 // ================== SOCKETS ==================
 io.on("connection", (socket) => {
   socket.on("join-room", ({ roomId, name }) => {
@@ -487,19 +598,22 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("coin-pickup", ({ roomId, playerId }) => {
+  socket.on("coin-pickup", ({ roomId, playerId, heartId }) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
     const p = room.players.get(playerId);
     if (!p) return;
 
-    // Heal a chunk of HP (heart pickup)
+    // Heal a chunk of HP
     p.health = Math.min(100, p.health + HEART_HEAL_AMOUNT);
 
     console.log(`[GAME] ${p.name} collected heart! Health: ${p.health}`);
 
-    // Broadcast updated health to all players
+    // Remove heart from tracking
+    onHeartPickedUp(room, heartId);
+
+    // Broadcast updated health
     io.to(roomId).emit("state", roomPublicState(room));
   });
 
@@ -519,6 +633,9 @@ io.on("connection", (socket) => {
 // global tick
 setInterval(() => {
   for (const room of rooms.values()) tickRoom(room);
+  for (const room of rooms.values()) {
+    checkAndSpawnHearts(room);
+  }
   for (const room of rooms.values()) {
     if (!room.started) continue;
     io.to(room.id).emit("state", roomPublicState(room));
