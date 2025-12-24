@@ -3,6 +3,8 @@
 
 (function () {
     let isMenuOpen = false;
+    let isMuted = false;
+
   
     function getEl(id) {
       return document.getElementById(id);
@@ -16,6 +18,13 @@
       pauseBtn.id = "pause-button";
       pauseBtn.className = "ui-button pause-button";
       pauseBtn.textContent = "Pause";
+
+      // Mute button (smaller, same style theme)
+const soundBtn = document.createElement("button");
+soundBtn.id = "sound-button";
+soundBtn.className = "sound-button";
+soundBtn.textContent = "MUTE";
+
   
       // Overlay container
       const overlay = document.createElement("div");
@@ -66,8 +75,10 @@
   
       // Attach everything to the game viewport
       parent.appendChild(pauseBtn);
+      parent.appendChild(soundBtn);
       parent.appendChild(overlay);
       parent.appendChild(systemMsg);
+      
   
       // UI event listeners – they dispatch custom events and update local UI
       pauseBtn.addEventListener("click", () => {
@@ -76,6 +87,23 @@
         const ev = new CustomEvent("menu:pauseRequest");
         document.dispatchEvent(ev);
       });
+      soundBtn.addEventListener("click", () => {
+        isMuted = !isMuted;
+        soundBtn.textContent = isMuted ? "MUTED" : "MUTE";
+      
+        // Notify the rest of the app about mute toggle
+        const ev = new CustomEvent("menu:muteToggle", {
+          detail: { isMuted },
+        });
+        document.dispatchEvent(ev);
+      
+        // Basic fallback: mute all <audio> elements on the page
+        const audioElements = document.querySelectorAll("audio");
+        audioElements.forEach((audio) => {
+          audio.muted = isMuted;
+        });
+      });
+      
   
       resumeBtn.addEventListener("click", () => {
         MenuUI.closeMenu();

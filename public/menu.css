@@ -74,12 +74,54 @@
   /* ===== Pause button in the corner ===== */
   .pause-button {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    bottom: 8px;                 
+    left: 90%;                   
+    transform: translateX(-50%);
     z-index: 900;
-    padding: 8px 16px;
-    font-size: 14px;
+  
+    padding: 2px 12px;           
+    background: #000000;          
+    border: 4px solid #ffffff;   
+    border-radius: 0;             
+  
+    color: #ffffff;               
+    font-family: "Press Start 2P", system-ui, sans-serif;
+    font-size: 9px;
+    text-transform: uppercase;
+    text-align: center;
+  
+    cursor: pointer;
   }
+  
+  /* optional: tiny hover effect */
+  .pause-button:hover {
+    transform: translateX(-50%) translateY(-2px);
+  }
+  
+  .sound-button {
+    position: absolute;
+    bottom: 8px;
+    right: 90%;
+    z-index: 900;
+  
+    padding: 2px 12px;
+    background: #000000;
+    border: 4px solid #ffffff;
+    border-radius: 0;
+  
+    color: #ffffff;
+    font-family: "Press Start 2P", system-ui, sans-serif;
+    font-size: 9px;
+    text-transform: uppercase;
+    text-align: center;
+  
+    cursor: pointer;
+  }
+  
+  .sound-button:hover {
+    transform: translateY(-1px);
+  }
+  
   
   /* ===== System message ("Ann paused the game") ===== */
   .system-message {

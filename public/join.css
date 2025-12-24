@@ -1,0 +1,97 @@
+/* Full-page setup for join screen */
+.join-page {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    font-family: "Press Start 2P", system-ui, sans-serif;
+    color: #ffffff;
+  }
+  
+  /* Centered layout with game-like background */
+  .join-wrap {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  
+    /* Use game background image here */
+    background-image: url("./img/background.png"); /* update file name if needed */
+    background-size: cover;
+    background-position: center;
+  }
+  
+  /* Dark overlay above the background to improve contrast */
+  .join-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+  }
+  
+  /* Card with form content */
+  .join-card {
+    position: relative;
+    z-index: 1;
+    width: min(560px, 92vw);
+    border: 4px solid #ffffff;
+    padding: 24px;
+    display: grid;
+    gap: 16px;
+    background: rgba(0, 0, 0, 0.9);
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.7);
+  }
+  
+  /* Title text styling */
+  .join-title {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  
+  /* Inputs in pixel UI style */
+  .join-card input {
+    font-family: inherit;
+    padding: 12px;
+    border: 4px solid #ffffff;
+    background: #000000;
+    color: #ffffff;
+    outline: none;
+    font-size: 12px;
+  }
+  
+  .join-card input::placeholder {
+    color: #aaaaaa;
+  }
+  
+  /* Join button styled like game UI */
+  .join-card button {
+    font-family: inherit;
+    padding: 12px;
+    border: 4px solid #ffffff;
+    background: #111111;
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 12px;
+    text-transform: uppercase;
+    transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+  }
+  
+  .join-card button:hover {
+    transform: translateY(-2px);
+    background: #222222;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+  }
+  
+  .join-card button:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+  
+  /* Error message under the button */
+  .err {
+    min-height: 24px;
+    color: #ff6b6b;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  
