@@ -36,9 +36,10 @@
     socket,
     roomId,
     myId: null,
+    myName: name,
     sendInput(input) {
       socket.emit("input", { roomId, input });
-    }
+    },
   };
 
   // Handle socket connection
@@ -73,7 +74,9 @@
 
   // Game over event
   socket.on("game-over", ({ winnerText }) => {
-    window.dispatchEvent(new CustomEvent("net-gameover", { detail: winnerText }));
+    window.dispatchEvent(
+      new CustomEvent("net-gameover", { detail: winnerText })
+    );
   });
 
   // Handle hit event
@@ -107,7 +110,3 @@
     window.location.href = "/";
   });
 })();
-
-
-
-

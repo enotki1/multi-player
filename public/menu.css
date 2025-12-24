@@ -144,4 +144,4 @@
   .system-message.visible {
     opacity: 1;
   }
-  
+  #gameRoot { position: relative; }

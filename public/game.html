@@ -1,12 +1,14 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="menu.css">
+
+  <link rel="stylesheet" href="./menu.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="./styles.css">
   <title>DOM Fighter MP</title>
 </head>
@@ -15,6 +17,7 @@
   <div id="viewport">
     <div id="scaleLayer">
       <div id="gameRoot" class="game">
+
         <div class="hud">
           <div class="hp hp--player">
             <div class="hp__base"></div>
@@ -32,24 +35,30 @@
         <div id="stage" class="stage">
           <div id="background" class="sprite"></div>
           <div id="shop" class="sprite"></div>
-
           <div id="fightersLayer"></div>
-        </div>
-      </div>
-    </div>
+        </div> 
+
+      </div> 
+    </div> 
 
     <div id="displayText" class="result-overlay"></div>
-  </div>
+  </div> <!-- ✅ viewport closed -->
 
-  <script src="/socket.io/socket.io.js"></script>
+   <script src="/socket.io/socket.io.js"></script>
 
+  
   <script defer src="./js/utils.js"></script>
-  <script defer src="./js/classes.js"></script>
+    <script defer src="./js/classes.js"></script>
   <script defer src="./js/audio.js"></script>
 
+    <script defer src="./js/audio.js"></script>
+
   <script defer src="./net.js"></script>
-  <script defer src="./game.js"></script>
-  <script defer src="./menu.js"></script>
+    <script defer src="./game.js"></script>
+    <script defer src="./menu.js"></script>
 </body>
 </html>
 
+
+</body>
+</html>
