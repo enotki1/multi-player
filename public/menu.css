@@ -14,15 +14,17 @@
   }
   
   /* ===== Menu panel ===== */
-  .menu-panel {
-    background: #1f1630;
-    padding: 24px 40px;
-    border-radius: 16px;
-    border: 3px solid #f5f5f5;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
-    min-width: 260px;
-    text-align: center;
-  }
+.menu-panel {
+  background: #1f1630;
+  padding: 16px 24px;             
+  border-radius: 16px;
+  border: 3px solid #f5f5f5;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+  min-width: 220px;               
+  max-width: 360px;               /* add: prevents huge wide panel */
+  text-align: center;
+}
+
   
   .menu-title {
     font-size: 24px;
@@ -31,11 +33,14 @@
   }
   
   .menu-info {
-    font-size: 14px;
+    font-size: 12px;             
     opacity: 0.85;
-    margin-bottom: 16px;
+    margin-bottom: 14px;            
     color: #dddddd;
+    line-height: 1.4;
+    word-break: break-word;
   }
+  
   
   /* ===== Buttons container ===== */
   .menu-buttons {
@@ -66,6 +71,16 @@
     box-shadow: none;
   }
   
+  /* ===== Disabled button state ===== */
+.ui-button:disabled,
+.ui-button.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+}
+
   /* ===== Danger / Quit button style ===== */
   .ui-button.danger {
     background: #8b2c3a;

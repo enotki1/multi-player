@@ -9,14 +9,88 @@
     return document.getElementById(id);
   }
 
+  const MenuUI = {
+    openMenu(text) {
+      const overlay = getEl("menu-overlay");
+      const info = getEl("menu-info");
+      if (!overlay) return;
+
+      if (text && info) info.textContent = text;
+
+      overlay.classList.remove("hidden");
+      isMenuOpen = true;
+    },
+
+    closeMenu() {
+      const overlay = getEl("menu-overlay");
+      if (!overlay) return;
+
+      overlay.classList.add("hidden");
+      isMenuOpen = false;
+    },
+
+    isOpen() {
+      return isMenuOpen;
+    },
+
+    showSystemMessage(text, timeout = 2000) {
+      const msg = getEl("system-message");
+      if (!msg) return;
+
+      msg.textContent = text;
+      msg.classList.remove("hidden");
+      msg.classList.add("visible");
+
+      clearTimeout(msg._hideTimer);
+      msg._hideTimer = setTimeout(() => {
+        msg.classList.remove("visible");
+        msg.classList.add("hidden");
+      }, timeout);
+    },
+  };
+
+  // Expose UI helpers globally
+  window.MenuUI = MenuUI;
+
+  function setMenuLock({ isOwner, pausedByName }) {
+    const pauseBtn = getEl("pause-button");
+    const resumeBtn = getEl("resume-button");
+    const quitBtn = getEl("quit-button");
+    const info = getEl("menu-info");
+
+    // Owner can resume; non-owner cannot interact except quit
+    if (pauseBtn) pauseBtn.disabled = !isOwner;
+    if (resumeBtn) resumeBtn.disabled = !isOwner;
+    if (quitBtn) quitBtn.disabled = false;
+
+    if (pauseBtn) pauseBtn.classList.toggle("is-disabled", !isOwner);
+    if (resumeBtn) resumeBtn.classList.toggle("is-disabled", !isOwner);
+
+    if (!isOwner && info) {
+      const who = pausedByName || "the other player";
+      info.textContent = `${who} paused the game. Please wait until they resume the game.`;
+    }
+  }
+
+  function unlockMenuControls() {
+    const pauseBtn = getEl("pause-button");
+    const resumeBtn = getEl("resume-button");
+
+    if (pauseBtn) {
+      pauseBtn.disabled = false;
+      pauseBtn.classList.remove("is-disabled");
+    }
+    if (resumeBtn) {
+      resumeBtn.disabled = false;
+      resumeBtn.classList.remove("is-disabled");
+    }
+  }
+
   function createMenuDOM() {
     const parent =
-      document.getElementById("gameRoot") ||
-      document.getElementById("scaleLayer") ||
-      document.getElementById("viewport") ||
-      document.body;
+      getEl("gameRoot") || getEl("scaleLayer") || getEl("viewport") || document.body;
 
-    // Pause button in the corner
+    // Pause button
     const pauseBtn = document.createElement("button");
     pauseBtn.id = "pause-button";
     pauseBtn.className = "ui-button pause-button";
@@ -67,130 +141,114 @@
     panel.appendChild(title);
     panel.appendChild(info);
     panel.appendChild(buttons);
-
     overlay.appendChild(panel);
 
-    // System message (e.g. "Ann paused the game")
+    // System message
     const systemMsg = document.createElement("div");
     systemMsg.id = "system-message";
     systemMsg.className = "system-message hidden";
 
-    // Attach everything to the game viewport
     parent.appendChild(pauseBtn);
     parent.appendChild(soundBtn);
     parent.appendChild(overlay);
     parent.appendChild(systemMsg);
 
-    // UI event listeners – they dispatch custom events and update local UI
+    // Pause: send request to server (no local "request sent" spam)
     pauseBtn.addEventListener("click", () => {
-      MenuUI.openMenu("Game paused");
-      MenuUI.showSystemMessage("You paused the game");
-
-      // Play pause music
-      if (window.audioManager) {
-        window.audioManager.playPause();
-      }
-      const ev = new CustomEvent("menu:pauseRequest");
-      document.dispatchEvent(ev);
+      document.dispatchEvent(new CustomEvent("menu:pauseRequest"));
     });
 
-    // Helper function to toggle mute
+    // Resume: send request to server (server will broadcast if allowed)
+    resumeBtn.addEventListener("click", () => {
+      document.dispatchEvent(new CustomEvent("menu:resumeRequest"));
+    });
+
+    // Quit: always available
+    quitBtn.addEventListener("click", () => {
+      document.dispatchEvent(new CustomEvent("menu:quitRequest"));
+    });
+
     function toggleMute() {
       isMuted = !isMuted;
       soundBtn.textContent = isMuted ? "MUTED" : "MUTE";
 
-      // Dispatch event for audio.js
-      const ev = new CustomEvent("menu:muteToggle", {
-        detail: { isMuted },
-      });
-      document.dispatchEvent(ev);
+      // Dispatch for audio.js
+      document.dispatchEvent(
+        new CustomEvent("menu:muteToggle", { detail: { isMuted } })
+      );
 
-      // Show feedback
       MenuUI.showSystemMessage(
         isMuted ? "Sound muted (M)" : "Sound unmuted (M)",
         1500
       );
     }
 
-    soundBtn.addEventListener("click", () => {
-      toggleMute();
-    });
+    soundBtn.addEventListener("click", toggleMute);
 
-    // Listen for keyboard mute toggle (triggered by M key in game.js)
+    // Sync button label when mute is toggled via keyboard
     document.addEventListener("menu:muteToggle", (e) => {
-      // If already toggled by keyboard, sync button state
       if (e.detail?.isMuted !== undefined && e.detail.isMuted !== isMuted) {
         isMuted = e.detail.isMuted;
         soundBtn.textContent = isMuted ? "MUTED" : "MUTE";
-        MenuUI.showSystemMessage(
-          isMuted ? "Sound muted (M)" : "Sound unmuted (M)",
-          1500
-        );
       }
     });
 
-    resumeBtn.addEventListener("click", () => {
-      MenuUI.closeMenu();
-      MenuUI.showSystemMessage("You resumed the game");
-      // Resume background music
-      if (window.audioManager) {
-        window.audioManager.resumeBackground();
+    // React to authoritative server sync (pause/resume/quit)
+    window.addEventListener("net-menu-action", (ev) => {
+      const { action, name } = ev.detail || {};
+      const who = name || "Player";
+      const myName = window.NET?.myName || "";
+      const isOwner = who === myName;
+
+      if (action === "pause") {
+        MenuUI.openMenu(`${who} paused the game`);
+        setMenuLock({ isOwner, pausedByName: who });
       }
-      const ev = new CustomEvent("menu:resumeRequest");
-      document.dispatchEvent(ev);
+
+      if (action === "resume") {
+        unlockMenuControls();
+        MenuUI.closeMenu();
+        MenuUI.showSystemMessage(`${who} resumed the game`);
+      }
+
+      if (action === "quit") {
+        const overlay = document.getElementById("menu-overlay");
+        const info = document.getElementById("menu-info");
+        const title = document.getElementById("menu-title");
+      
+        MenuUI.openMenu();
+      
+        if (title) title.textContent = "Opponent Left";
+        if (info) info.textContent = `${who} quit the game. Returning to Join menu...`;
+      
+        // Prevent any interaction while redirecting
+        const pauseBtn = document.getElementById("pause-button");
+        const resumeBtn = document.getElementById("resume-button");
+        const quitBtn = document.getElementById("quit-button");
+      
+        if (pauseBtn) pauseBtn.disabled = true;
+        if (resumeBtn) resumeBtn.disabled = true;
+        if (quitBtn) quitBtn.disabled = true;
+      
+        setTimeout(() => {
+          sessionStorage.removeItem("playerName");
+          location.href = "/";
+        }, 1500);
+      }
+      
+      
     });
 
-    quitBtn.addEventListener("click", () => {
-      MenuUI.showSystemMessage("You quit the game");
-      const ev = new CustomEvent("menu:quitRequest");
-      document.dispatchEvent(ev);
+    // Show a message only to the player whose request was denied by the server
+    window.addEventListener("net-menu-action-denied", (ev) => {
+      const reason = ev.detail?.reason;
+      if (reason) {
+        MenuUI.showSystemMessage(reason, 2500);
+      }
     });
   }
 
-  const MenuUI = {
-    openMenu(text) {
-      const overlay = getEl("menu-overlay");
-      const info = getEl("menu-info");
-      if (!overlay) return;
-      if (text && info) {
-        info.textContent = text;
-      }
-      overlay.classList.remove("hidden");
-      isMenuOpen = true;
-    },
-
-    closeMenu() {
-      const overlay = getEl("menu-overlay");
-      if (!overlay) return;
-      overlay.classList.add("hidden");
-      isMenuOpen = false;
-    },
-
-    isOpen() {
-      return isMenuOpen;
-    },
-
-    showSystemMessage(text, timeout = 2000) {
-      const msg = getEl("system-message");
-      if (!msg) return;
-
-      msg.textContent = text;
-      msg.classList.remove("hidden");
-      msg.classList.add("visible");
-
-      clearTimeout(msg._hideTimer);
-      msg._hideTimer = setTimeout(() => {
-        msg.classList.remove("visible");
-        msg.classList.add("hidden");
-      }, timeout);
-    },
-  };
-
-  // Expose to other client scripts (game.js, net.js)
-  window.MenuUI = MenuUI;
-
   document.addEventListener("DOMContentLoaded", () => {
-    console.log("menu DOM init");
     createMenuDOM();
   });
 })();

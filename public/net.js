@@ -1,3 +1,5 @@
+console.log("[net.js] loaded");
+
 (() => {
   const socket = io();
   const qs = new URLSearchParams(location.search);
@@ -67,36 +69,50 @@
 
   // Sync game timer
   socket.on("timer", ({ timer }) => {
-    window.dispatchEvent(
-      new CustomEvent("net-timer", { detail: timer })
-    );
+    window.dispatchEvent(new CustomEvent("net-timer", { detail: timer }));
   });
 
   // Game over event
   socket.on("game-over", ({ winnerText }) => {
-    window.dispatchEvent(
-      new CustomEvent("net-gameover", { detail: winnerText })
-    );
+    window.dispatchEvent(new CustomEvent("net-gameover", { detail: winnerText }));
   });
 
   // Handle hit event
   socket.on("hit", (payload) => {
-    window.dispatchEvent(
-      new CustomEvent("net-hit", { detail: payload })
-    );
+    window.dispatchEvent(new CustomEvent("net-hit", { detail: payload }));
   });
 
-  // ---------------------------------------------------------
-  // 🔥 QUIT HANDLING — reacts to "menu:quitRequest" from menu.js
-  // ---------------------------------------------------------
+  // Receive menu actions broadcasted to everyone in the room
+  socket.on("menu-action", (payload) => {
+    console.log("[net.js] menu-action from server", payload);
+    window.dispatchEvent(new CustomEvent("net-menu-action", { detail: payload }));
+  });
+
+  socket.on("menu-action-denied", (payload) => {
+    window.dispatchEvent(new CustomEvent("net-menu-action-denied", { detail: payload }));
+  });
+  
+
+  // Forward menu actions (pause/resume/quit) to the server
+  document.addEventListener("menu:pauseRequest", () => {
+    socket.emit("menu-action", { roomId, action: "pause", name: window.NET.myName });
+  });
+
+  document.addEventListener("menu:resumeRequest", () => {
+    socket.emit("menu-action", { roomId, action: "resume", name: window.NET.myName });
+  });
+
   document.addEventListener("menu:quitRequest", () => {
-    // Inform server the player is quitting
-    if (socket && socket.connected) {
-      try {
-        socket.emit("playerQuit", { roomId, name });
-      } catch (err) {
-        console.error("Error sending playerQuit:", err);
-      }
+    // Inform server and all players
+    socket.emit("menu-action", { roomId, action: "quit", name: window.NET.myName });
+
+  
+
+    // Backward compatibility (if server still expects this event somewhere)
+    try {
+      socket.emit("playerQuit", { roomId, name: window.NET.myName });
+    } catch (err) {
+      console.error("Error sending playerQuit:", err);
     }
 
     // Gracefully disconnect socket
