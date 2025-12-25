@@ -271,10 +271,23 @@ function applyHit(attacker, victim) {
 
   if (victim.health <= 0) victim.dead = true;
 
-  // Track last hit time for heart spawn delay
+  // Track damage and hit time for heart spawning
   const room = rooms.get(attacker.roomId);
-  if (room && heartSpawns.has(room.id)) {
-    heartSpawns.get(room.id).lastHitTime = Date.now();
+  if (room) {
+    if (!heartSpawns.has(room.id)) {
+      heartSpawns.set(room.id, {
+        lastSpawnTime: 0,
+        lastHitTime: 0,
+        damageDealtSinceSpawn: 0,
+      });
+    }
+    const spawn = heartSpawns.get(room.id);
+    spawn.lastHitTime = Date.now();
+    spawn.damageDealtSinceSpawn += dmg; // Track total damage
+
+    console.log(
+      `[HEARTS] Damage tracker: ${spawn.damageDealtSinceSpawn}/${HEART_DAMAGE_THRESHOLD} in ${room.id}`
+    );
   }
 
   io.to(attacker.roomId).emit("hit", {
@@ -399,8 +412,10 @@ function tickRoom(room) {
 const heartSpawns = new Map(); // track spawning state per room
 const activeHearts = new Map(); // track individual hearts per room
 
-const HEART_SPAWN_INTERVAL = 5000; // 5 seconds
-const HEART_LIFETIME = 1200 * (1000 / 60); // 1200 frames at 60fps = ~20 seconds
+const HEART_SPAWN_COOLDOWN = 5000; // 5 seconds minimum between spawns
+const HEART_DAMAGE_THRESHOLD = 40; // Only spawn after 40+ damage dealt
+const HEART_SPAWN_DELAY_AFTER_HIT = 2000; // 2 seconds after last hit
+const HEART_LIFETIME = 1200 * (1000 / 60);
 const HEART_SPAWN_X = 650;
 const HEART_SPAWN_Y = 220;
 const HEART_FLIGHT_FRAMES = 65;
@@ -412,8 +427,9 @@ function checkAndSpawnHearts(room) {
   // Initialize spawn tracker for this room if needed
   if (!heartSpawns.has(room.id)) {
     heartSpawns.set(room.id, {
-      lastSpawnTime: Date.now(),
+      lastSpawnTime: 0, // Start at 0 so first spawn can happen
       lastHitTime: 0,
+      damageDealtSinceSpawn: 0,
     });
   }
 
@@ -435,12 +451,21 @@ function checkAndSpawnHearts(room) {
     }
   }
 
-  // Check if enough time has passed since last spawn
-  const HEART_SPAWN_DELAY = 2000; // 2 seconds after hit
-  if (spawn.lastHitTime && now - spawn.lastHitTime < HEART_SPAWN_DELAY) return;
-
   // Check if any hearts still exist
   if (hearts.size > 0) return;
+
+  // Check minimum cooldown between spawns (prevents spam)
+  if (now - spawn.lastSpawnTime < HEART_SPAWN_COOLDOWN) return;
+
+  // Check if enough time has passed since last hit (gives breathing room)
+  if (
+    spawn.lastHitTime &&
+    now - spawn.lastHitTime < HEART_SPAWN_DELAY_AFTER_HIT
+  )
+    return;
+
+  // Check if enough damage has been dealt to warrant a heart spawn
+  if (spawn.damageDealtSinceSpawn < HEART_DAMAGE_THRESHOLD) return;
 
   // Count wounded players
   const players = [...room.players.values()];
@@ -459,6 +484,9 @@ function checkAndSpawnHearts(room) {
 
   // SPAWN HEARTS
   spawn.lastSpawnTime = now;
+  spawn.damageDealtSinceSpawn = 0; // Reset damage counter
+
+  console.log(`[HEARTS] Spawning ${heartsToSpawn} heart(s) in ${room.id}`);
 
   for (let i = 0; i < heartsToSpawn; i++) {
     // Spread hearts horizontally if spawning multiple
@@ -474,7 +502,7 @@ function checkAndSpawnHearts(room) {
     hearts.set(heartData.id, heartData);
 
     console.log(
-      `[HEARTS] Spawned heart ${heartData.id} in ${room.id} (${
+      `[HEARTS] Spawned heart ${heartData.id} at x=${heartData.x} (${
         i + 1
       }/${heartsToSpawn})`
     );
