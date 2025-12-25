@@ -473,8 +473,33 @@ function checkAndSpawnHearts(room) {
 
   if (wounded.length === 0) return;
 
+  // SPAWN ONE HEART
+  spawn.lastSpawnTime = now;
+  spawn.damageDealtSinceSpawn = 0; // Reset damage counter
+
+  console.log(`[HEARTS] Spawning 1 heart in ${room.id}`);
+
+  const heartData = {
+    id: `${room.id}-${now}`,
+    spawnTime: now,
+    x: HEART_SPAWN_X,
+    y: HEART_SPAWN_Y,
+  };
+
+  hearts.set(heartData.id, heartData);
+
+  console.log(`[HEARTS] Spawned heart ${heartData.id} at x=${heartData.x}`);
+
+  // Broadcast to both clients
+  io.to(room.id).emit("heart-spawn", {
+    heartId: heartData.id,
+    x: heartData.x,
+    y: heartData.y,
+    flightFrames: HEART_FLIGHT_FRAMES,
+  });
+
   // Determine how many hearts to spawn based on wound severity
-  let heartsToSpawn = 1;
+  /*let heartsToSpawn = 1;
 
   // Spawn 2 hearts if multiple players wounded OR someone critically wounded (<50 HP)
   const criticallyWounded = wounded.some((p) => p.health < 50);
@@ -514,7 +539,7 @@ function checkAndSpawnHearts(room) {
       y: heartData.y,
       flightFrames: HEART_FLIGHT_FRAMES,
     });
-  }
+  } */
 }
 
 // Listen for heart pickup and remove from tracking
