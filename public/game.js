@@ -435,6 +435,7 @@
     if (room.ended && room.winnerText) {
       overlayEl.style.display = "flex";
       overlayEl.textContent = room.winnerText;
+      MenuUI.openMenu(room.winnerText, true);
 
       // Play tie music if it's a tie, otherwise stop all music
       if (room.winnerText.toLowerCase().includes("tie")) {
@@ -505,6 +506,29 @@
     }
   });
 
+  window.addEventListener("net-rematch-request", (ev) => {
+    const { opponentName } = ev.detail;
+    MenuUI.showRematchDialog(opponentName);
+  });
+
+  window.addEventListener("net-rematch-accepted", () => {
+    MenuUI.closeMenu();
+    MenuUI.showSystemMessage("Opponent accepted! Starting new round...", 2000);
+  });
+
+  window.addEventListener("net-rematch-declined", () => {
+    MenuUI.closeMenu();
+    MenuUI.showSystemMessage("Opponent declined the rematch");
+    setTimeout(() => {
+      window.location.href = "/";
+    }, 2000);
+  });
+
+  window.addEventListener("net-rematch-cancelled", () => {
+    MenuUI.closeMenu();
+    MenuUI.showSystemMessage("Opponent cancelled rematch request");
+  });
+
   window.addEventListener("net-hit", (ev) => {
     const { victimId, victimDead } = ev.detail || {};
     const f = fighters.get(victimId);
@@ -532,6 +556,45 @@
     f._hitAnim = true;
     f._state = "takeHit";
     f.switchSprite("takeHit");
+  });
+
+  document.addEventListener("menu:rematchRequest", () => {
+    if (window.NET) {
+      MenuUI.showRematchWaiting();
+      window.NET.socket.emit("rematch-request", {
+        roomId: window.NET.roomId,
+      });
+    }
+  });
+
+  document.addEventListener("menu:quitRequest", () => {
+    window.location.href = "/";
+  });
+
+  document.addEventListener("menu:rematchAccepted", () => {
+    if (window.NET) {
+      window.NET.socket.emit("rematch-response", {
+        roomId: window.NET.roomId,
+        accepted: true,
+      });
+    }
+  });
+
+  document.addEventListener("menu:rematchDeclined", () => {
+    if (window.NET) {
+      window.NET.socket.emit("rematch-response", {
+        roomId: window.NET.roomId,
+        accepted: false,
+      });
+    }
+  });
+
+  document.addEventListener("menu:rematchCancelled", () => {
+    if (window.NET) {
+      window.NET.socket.emit("rematch-cancelled", {
+        roomId: window.NET.roomId,
+      });
+    }
   });
 
   // ======== 60 FPS LOOP ========

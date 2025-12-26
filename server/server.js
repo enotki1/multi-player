@@ -685,6 +685,80 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("state", roomPublicState(room));
   });
 
+  // ===== REMATCH SYSTEM =====
+  socket.on("rematch-request", ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room || !room.ended) return;
+
+    const requester = room.players.get(socket.id);
+    if (!requester) return;
+
+    if (!room.rematchVotes) {
+      room.rematchVotes = new Map();
+    }
+    room.rematchVotes.set(socket.id, true);
+
+    const opponent = [...room.players.values()].find((p) => p.id !== socket.id);
+    if (!opponent) return;
+
+    io.to(opponent.id).emit("rematch-request", {
+      opponentName: requester.name,
+    });
+
+    log(`[REMATCH] ${requester.name} requested rematch in ${roomId}`);
+  });
+
+  socket.on("rematch-response", ({ roomId, accepted }) => {
+    const room = rooms.get(roomId);
+    if (!room || !room.ended) return;
+
+    const responder = room.players.get(socket.id);
+    if (!responder) return;
+
+    if (!room.rematchVotes) {
+      room.rematchVotes = new Map();
+    }
+
+    if (accepted) {
+      room.rematchVotes.set(socket.id, true);
+      log(`[REMATCH] ${responder.name} accepted rematch in ${roomId}`);
+
+      if (room.rematchVotes.size === 2) {
+        room.rematchVotes.clear();
+        startRound(room);
+        io.to(roomId).emit("rematch-accepted");
+      }
+    } else {
+      log(`[REMATCH] ${responder.name} declined rematch in ${roomId}`);
+      const requester = [...room.players.values()].find(
+        (p) => p.id !== socket.id
+      );
+      if (requester) {
+        io.to(requester.id).emit("rematch-declined");
+      }
+      room.rematchVotes.clear();
+    }
+  });
+
+  socket.on("rematch-cancelled", ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const canceller = room.players.get(socket.id);
+    if (!canceller) return;
+
+    const opponent = [...room.players.values()].find((p) => p.id !== socket.id);
+    if (opponent) {
+      io.to(opponent.id).emit("rematch-cancelled");
+    }
+
+    if (room.rematchVotes) {
+      room.rematchVotes.clear();
+    }
+
+    log(`[REMATCH] ${canceller.name} cancelled rematch in ${roomId}`);
+  });
+
   socket.on("disconnect", () => {
     for (const room of rooms.values()) {
       if (!room.players.has(socket.id)) continue;

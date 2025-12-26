@@ -74,7 +74,29 @@ console.log("[net.js] loaded");
 
   // Game over event
   socket.on("game-over", ({ winnerText }) => {
-    window.dispatchEvent(new CustomEvent("net-gameover", { detail: winnerText }));
+    window.dispatchEvent(
+      new CustomEvent("net-gameover", { detail: winnerText })
+    );
+  });
+
+  socket.on("rematch-request", (data) => {
+    window.dispatchEvent(
+      new CustomEvent("net-rematch-request", {
+        detail: { opponentName: data.opponentName },
+      })
+    );
+  });
+
+  socket.on("rematch-accepted", () => {
+    window.dispatchEvent(new CustomEvent("net-rematch-accepted"));
+  });
+
+  socket.on("rematch-declined", () => {
+    window.dispatchEvent(new CustomEvent("net-rematch-declined"));
+  });
+
+  socket.on("rematch-cancelled", () => {
+    window.dispatchEvent(new CustomEvent("net-rematch-cancelled"));
   });
 
   // Handle hit event
@@ -85,28 +107,41 @@ console.log("[net.js] loaded");
   // Receive menu actions broadcasted to everyone in the room
   socket.on("menu-action", (payload) => {
     console.log("[net.js] menu-action from server", payload);
-    window.dispatchEvent(new CustomEvent("net-menu-action", { detail: payload }));
+    window.dispatchEvent(
+      new CustomEvent("net-menu-action", { detail: payload })
+    );
   });
 
   socket.on("menu-action-denied", (payload) => {
-    window.dispatchEvent(new CustomEvent("net-menu-action-denied", { detail: payload }));
+    window.dispatchEvent(
+      new CustomEvent("net-menu-action-denied", { detail: payload })
+    );
   });
-  
 
   // Forward menu actions (pause/resume/quit) to the server
   document.addEventListener("menu:pauseRequest", () => {
-    socket.emit("menu-action", { roomId, action: "pause", name: window.NET.myName });
+    socket.emit("menu-action", {
+      roomId,
+      action: "pause",
+      name: window.NET.myName,
+    });
   });
 
   document.addEventListener("menu:resumeRequest", () => {
-    socket.emit("menu-action", { roomId, action: "resume", name: window.NET.myName });
+    socket.emit("menu-action", {
+      roomId,
+      action: "resume",
+      name: window.NET.myName,
+    });
   });
 
   document.addEventListener("menu:quitRequest", () => {
     // Inform server and all players
-    socket.emit("menu-action", { roomId, action: "quit", name: window.NET.myName });
-
-  
+    socket.emit("menu-action", {
+      roomId,
+      action: "quit",
+      name: window.NET.myName,
+    });
 
     // Backward compatibility (if server still expects this event somewhere)
     try {
@@ -124,5 +159,24 @@ console.log("[net.js] loaded");
 
     // Redirect back to join page
     window.location.href = "/";
+  });
+
+  document.addEventListener("menu:rematchRequest", () => {
+    socket.emit("rematch-request", {
+      roomId,
+      opponentName: window.NET.myName,
+    });
+  });
+
+  document.addEventListener("menu:rematchAccepted", () => {
+    socket.emit("rematch-accepted", { roomId });
+  });
+
+  document.addEventListener("menu:rematchDeclined", () => {
+    socket.emit("rematch-declined", { roomId });
+  });
+
+  document.addEventListener("menu:rematchCancelled", () => {
+    socket.emit("rematch-cancelled", { roomId });
   });
 })();
