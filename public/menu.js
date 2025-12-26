@@ -327,6 +327,8 @@
 
         // ✅ lock controls based on ownership (other player can't resume)
         setMenuLock({ isOwner, pausedByName: who });
+
+        window.audioManager?.playPause();
       }
 
       if (action === "resume") {
@@ -334,6 +336,8 @@
         window.__setMenuMode?.("pause"); // resets labels if needed
         MenuUI.closeMenu();
         MenuUI.showSystemMessage(`${who} resumed the game`);
+
+        window.audioManager?.resumeBackground();
       }
 
       if (action === "quit") {
@@ -359,6 +363,8 @@
           sessionStorage.removeItem("playerName");
           location.href = "/";
         }, 1500);
+
+        window.audioManager?.stopAll();
       }
     });
   }
@@ -371,8 +377,8 @@
     }
   });
 
-  window.addEventListener("net-gameover", (ev) => {
-    const resultText = ev.detail || "";
+  window.addEventListener("ui:postgame", (ev) => {
+    const resultText = ev.detail?.resultText || "";
     MenuUI.openMenu();
     safeSetMode("postGame", { resultText });
   });
@@ -403,6 +409,7 @@
   window.addEventListener("net-rematch-accepted", () => {
     MenuUI.closeMenu();
     MenuUI.showSystemMessage("Rematch starting!", 1500);
+    window.audioManager?.resumeBackground?.();
   });
 
   document.addEventListener("DOMContentLoaded", () => {

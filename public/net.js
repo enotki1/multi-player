@@ -162,18 +162,15 @@ console.log("[net.js] loaded");
   });
 
   document.addEventListener("menu:rematchRequest", () => {
-    socket.emit("rematch-request", {
-      roomId,
-      opponentName: window.NET.myName,
-    });
+    socket.emit("rematch-request", { roomId });
   });
 
   document.addEventListener("menu:rematchAccepted", () => {
-    socket.emit("rematch-accepted", { roomId });
+    socket.emit("rematch-response", { roomId, accepted: true });
   });
 
   document.addEventListener("menu:rematchDeclined", () => {
-    socket.emit("rematch-declined", { roomId });
+    socket.emit("rematch-response", { roomId, accepted: false });
   });
 
   document.addEventListener("menu:rematchCancelled", () => {

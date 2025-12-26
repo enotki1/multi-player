@@ -43,7 +43,9 @@ class AudioManager {
     if (this.isMuted || !this.sounds[name]) return;
     const audio = this.sounds[name].cloneNode();
     audio.volume = Math.min(1, volume);
+    audio.currentTime = 0;
     audio.play().catch((e) => console.log("Audio play failed:", e));
+    return audio;
   }
 
   mute() {
@@ -85,6 +87,7 @@ class AudioManager {
     this.currentTrack = this.tieMusic;
     this.tieMusic.currentTime = 0;
     this.tieMusic.play().catch((e) => console.log("Tie music failed:", e));
+    return this.tieMusic;
   }
 
   playPause() {
@@ -132,3 +135,30 @@ document.addEventListener("menu:muteToggle", (event) => {
     audioManager.playBackground();
   }
 });
+
+function unlockAudioOnce() {
+  const unlock = () => {
+    // Start/stop a silent play to "unlock" HTMLAudio in some browsers
+    try {
+      if (audioManager.backgroundMusic) {
+        audioManager.backgroundMusic.volume = 0;
+        audioManager.backgroundMusic
+          .play()
+          .then(() => {
+            audioManager.backgroundMusic.pause();
+            audioManager.backgroundMusic.currentTime = 0;
+            audioManager.backgroundMusic.volume = 0.4;
+          })
+          .catch(() => {});
+      }
+    } catch (_) {}
+
+    window.removeEventListener("pointerdown", unlock);
+    window.removeEventListener("keydown", unlock);
+  };
+
+  window.addEventListener("pointerdown", unlock, { once: true });
+  window.addEventListener("keydown", unlock, { once: true });
+}
+
+unlockAudioOnce();

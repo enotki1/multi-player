@@ -11,6 +11,8 @@
   const COIN_TARGET_X = BASE_W / 2; // where we want them to land (center)
   const COIN_FLIGHT_FRAMES = 65; // how long the “throw” lasts in frames
 
+  let prevEnded = false;
+
   function fitToScreenStable() {
     const layer = document.getElementById("scaleLayer");
     if (!layer) return;
@@ -36,6 +38,30 @@
     fitToScreenStable();
     requestAnimationFrame(fitToScreenStable);
   });
+
+  function resetFighterLocalState(f) {
+    // clear client-side animation locks
+    f._dead = false;
+    f._hitAnim = false;
+    f._attackAnim = false;
+    f._waitRelease = false;
+
+    f.dead = false;
+
+    f._srvAttacking = false;
+    f._prevSrvAttacking = false;
+
+    // reset state + animation
+    f._state = "idle";
+    f.switchSprite("idle");
+    f.frameCurrent = 0;
+
+    // align to last known net position to avoid jump
+    f.position.x = f._netX ?? f.position.x;
+    f.position.y = f._netY ?? f.position.y;
+    f._lastNetX = f._netX ?? f._lastNetX;
+    f._lastNetY = f._netY ?? f._lastNetY;
+  }
 
   addEventListener("resize", fitToScreenStable);
   addEventListener("orientationchange", fitToScreenStable);
@@ -425,7 +451,22 @@
     const room = ev.detail;
 
     // update game active flag
-    isGameActive = !!room.started && !room.ended;
+    isGameActive = !!room.started && !room.ended && !room.paused;
+
+    const nowEnded = !!room.ended;
+    const nowStarted = !!room.started && !room.ended;
+
+    if (prevEnded && nowStarted) {
+      // round restarted
+      overlayEl.style.display = "none";
+      overlayEl.textContent = "";
+      for (const f of fighters.values()) resetFighterLocalState(f);
+
+      // also clear hearts
+      for (const coin of coins.values()) coin.el.remove();
+      coins.clear();
+    }
+    prevEnded = nowEnded;
 
     if (typeof room.timer === "number" && timerEl)
       timerEl.textContent = room.timer;
@@ -435,24 +476,22 @@
     if (room.ended && room.winnerText) {
       overlayEl.style.display = "flex";
       overlayEl.textContent = room.winnerText;
-      MenuUI.openMenu(room.winnerText, true);
 
-      // Play tie music if it's a tie, otherwise stop all music
-      if (room.winnerText.toLowerCase().includes("tie")) {
-        audioManager.playTie();
-      } else {
-        audioManager.stopBackground();
-      }
-
-      for (const coin of coins.values()) {
-        coin.el.remove();
-      }
+      // clear hearts
+      for (const coin of coins.values()) coin.el.remove();
       coins.clear();
+
+      return; // important: don't fall into "else" that could restart music
     } else {
       overlayEl.style.display = "none";
       overlayEl.textContent = "";
-      if (audioManager.backgroundMusic && audioManager.backgroundMusic.paused) {
-        audioManager.playBackground();
+      if (!room.ended && !room.paused) {
+        if (
+          audioManager.backgroundMusic &&
+          audioManager.backgroundMusic.paused
+        ) {
+          audioManager.playBackground();
+        }
       }
     }
   });
@@ -492,21 +531,75 @@
   window.addEventListener("net-timer", (ev) => {
     if (timerEl) timerEl.textContent = ev.detail;
   });
-  window.addEventListener("net-gameover", (ev) => {
-    overlayEl.style.display = "flex";
-    overlayEl.textContent = ev.detail || "Game Over";
+  const POSTGAME_DELAY_MS = 2500;
 
-    const result = ev.detail || "";
-    if (result.includes("wins")) {
-      if (result.includes(window.NET.myName)) {
-        audioManager.play("victory", 1.0);
+  let postGameMenuShown = false;
+  let postGameResultSoundDone = false;
+
+  function maybeStartPostGameHold() {
+    if (postGameMenuShown && postGameResultSoundDone) {
+      // loop hold.wav while post-game menu is open
+      window.audioManager?.playPause?.();
+    }
+  }
+
+  window.addEventListener("net-gameover", (ev) => {
+    const resultText = ev.detail || "Game Over";
+
+    // show big center text
+    overlayEl.style.display = "flex";
+    overlayEl.textContent = resultText;
+
+    postGameMenuShown = false;
+    postGameResultSoundDone = false;
+
+    // stop everything before result sound
+    audioManager.stopAll();
+
+    const t = resultText.toLowerCase();
+
+    // Play result sound and mark "done" when it ends
+    let a = null;
+
+    if (t.includes("tie")) {
+      a = audioManager.playTie();
+    } else if (t.includes("wins")) {
+      if (resultText.includes(window.NET?.myName)) {
+        a = audioManager.play("victory", 1.0);
       } else {
-        audioManager.play("defeat", 0.9);
+        a = audioManager.play("defeat", 0.9);
       }
     }
+
+    if (a) {
+      a.addEventListener(
+        "ended",
+        () => {
+          postGameResultSoundDone = true;
+          maybeStartPostGameHold();
+        },
+        { once: true }
+      );
+    } else {
+      // muted or sound missing -> treat as finished immediately
+      postGameResultSoundDone = true;
+    }
+
+    // after text moment -> hide text and show postgame menu
+    setTimeout(() => {
+      overlayEl.style.display = "none";
+      overlayEl.textContent = "";
+
+      window.dispatchEvent(
+        new CustomEvent("ui:postgame", { detail: { resultText } })
+      );
+
+      postGameMenuShown = true;
+      maybeStartPostGameHold();
+    }, POSTGAME_DELAY_MS);
   });
 
-  window.addEventListener("net-rematch-request", (ev) => {
+  /*window.addEventListener("net-rematch-request", (ev) => {
     const { opponentName } = ev.detail;
     MenuUI.showRematchDialog(opponentName);
   });
@@ -514,6 +607,17 @@
   window.addEventListener("net-rematch-accepted", () => {
     MenuUI.closeMenu();
     MenuUI.showSystemMessage("Opponent accepted! Starting new round...", 2000);
+
+    // ✅ reset overlay + local fighter animations immediately
+    overlayEl.style.display = "none";
+    overlayEl.textContent = "";
+
+    for (const f of fighters.values()) {
+      resetFighterLocalState(f);
+    }
+
+    // optional: ensure background returns
+    window.audioManager?.resumeBackground?.();
   });
 
   window.addEventListener("net-rematch-declined", () => {
@@ -527,7 +631,7 @@
   window.addEventListener("net-rematch-cancelled", () => {
     MenuUI.closeMenu();
     MenuUI.showSystemMessage("Opponent cancelled rematch request");
-  });
+  });*/
 
   window.addEventListener("net-hit", (ev) => {
     const { victimId, victimDead } = ev.detail || {};
@@ -558,44 +662,44 @@
     f.switchSprite("takeHit");
   });
 
-  document.addEventListener("menu:rematchRequest", () => {
+  /*document.addEventListener("menu:rematchRequest", () => {
     if (window.NET) {
       MenuUI.showRematchWaiting();
       window.NET.socket.emit("rematch-request", {
         roomId: window.NET.roomId,
       });
     }
-  });
+  });*/
 
   document.addEventListener("menu:quitRequest", () => {
     window.location.href = "/";
   });
 
-  document.addEventListener("menu:rematchAccepted", () => {
+  /*document.addEventListener("menu:rematchAccepted", () => {
     if (window.NET) {
       window.NET.socket.emit("rematch-response", {
         roomId: window.NET.roomId,
         accepted: true,
       });
     }
-  });
+  });*/
 
-  document.addEventListener("menu:rematchDeclined", () => {
+  /*document.addEventListener("menu:rematchDeclined", () => {
     if (window.NET) {
       window.NET.socket.emit("rematch-response", {
         roomId: window.NET.roomId,
         accepted: false,
       });
     }
-  });
+  });*/
 
-  document.addEventListener("menu:rematchCancelled", () => {
+  /*document.addEventListener("menu:rematchCancelled", () => {
     if (window.NET) {
       window.NET.socket.emit("rematch-cancelled", {
         roomId: window.NET.roomId,
       });
     }
-  });
+  });*/
 
   // ======== 60 FPS LOOP ========
   function animate() {
