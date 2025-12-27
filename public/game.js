@@ -1,6 +1,25 @@
 // public/js/game.js
 (() => {
   const DEBUG_INPUT = false;
+    // ===== DEBUG =====
+  const DEBUG_DEATH = true;         // смерть/ресеты
+  const DEBUG_ROOM_FLOW = true;     // started/ended transitions
+  const DEBUG_THROTTLE_MS = 500;    // антиспам (мс)
+
+  const _dbgLast = new Map(); // key -> timestamp
+  function dbg(key, ...args) {
+    const now = performance.now();
+    const last = _dbgLast.get(key) || 0;
+    if (now - last < DEBUG_THROTTLE_MS) return;
+    _dbgLast.set(key, now);
+    console.log(...args);
+  }
+  function pLabel(p) {
+    const me = window.NET?.myId;
+    const tag = p.id === me ? "ME" : "OPP";
+    return `${tag}:${p.name}(${p.slot})`;
+  }
+
 
   const BASE_W = 1024;
   const BASE_H = 576;
@@ -40,6 +59,18 @@
   });
 
   function resetFighterLocalState(f) {
+        if (DEBUG_DEATH) {
+      console.log("[RESET fighter]", {
+        id: f?.id,
+        _dead: f?._dead,
+        _state: f?._state,
+        frame: f?.frameCurrent,
+        _hitAnim: f?._hitAnim,
+        _attackAnim: f?._attackAnim,
+        _waitRelease: f?._waitRelease,
+      });
+    }
+
     // clear client-side animation locks
     f._dead = false;
     f._hitAnim = false;
@@ -52,6 +83,7 @@
     f._prevSrvAttacking = false;
 
     // reset state + animation
+    f.image = null;
     f._state = "idle";
     f.switchSprite("idle");
     f.frameCurrent = 0;
@@ -272,7 +304,7 @@
     f._waitRelease = false;
     f._hitAnim = false; // проигрываем takeHit до конца (локальный лок)
     // анимацию сыграли, ждём пока сервер отпустит attacking
-
+       f.id = p.id;
     return f;
   }
 
@@ -410,7 +442,58 @@
       f._netX = p.x;
       f._netY = p.y;
 
-      f._dead = !!p.dead;
+      // ===== DEBUG DEAD / REVIVE =====
+const wasDead = !!f._dead;
+const srvDead = !!p.dead;
+
+dbg(
+  `dead-${p.id}`,
+  "[DEAD sync]",
+  pLabel(p),
+  "room:",
+  { started: room.started, ended: room.ended, paused: room.paused, timer: room.timer },
+  "srv:",
+  { dead: srvDead, health: p.health, attacking: !!p.attacking },
+  "cli(before):",
+  { _dead: wasDead, _state: f._state, frame: f.frameCurrent }
+);
+
+f._dead = srvDead;
+// 🔒 HARD GUARD: нельзя рисовать death, если сервер говорит "жив"
+if (!f._dead && isSprite(f, "death")) {
+  // обходим возможный guard в switchSprite() (который часто запрещает выход из death)
+  f.image = null;           // сброс текущей картинки, чтобы switchSprite точно сработал
+  f._state = "idle";
+  f.switchSprite("idle");
+  f.frameCurrent = 0;
+}
+
+
+
+// если был мёртв, а сервер оживил — сбросить локальные локи
+if (wasDead && !f._dead) {
+  console.warn("[REVIVE detected]", pLabel(p), {
+    room: { started: room.started, ended: room.ended, paused: room.paused },
+    srvDead,
+    cliBefore: { _dead: wasDead, _state: f._state, frame: f.frameCurrent },
+  });
+
+  resetFighterLocalState(f);
+
+  console.warn("[REVIVE after reset]", pLabel(p), {
+    cliAfter: { _dead: f._dead, _state: f._state, frame: f.frameCurrent },
+  });
+}
+
+// если сервер сказал dead=true — фиксируем
+if (!wasDead && f._dead) {
+  console.error("[DEAD detected from server]", pLabel(p), {
+    room: { started: room.started, ended: room.ended, paused: room.paused },
+    srv: { dead: srvDead, health: p.health },
+  });
+}
+// ===== END DEBUG =====
+
       f._prevSrvAttacking = f._srvAttacking;
       f._srvAttacking = !room.ended && !p.dead ? !!p.attacking : false;
 
@@ -449,6 +532,22 @@
 
   window.addEventListener("room-state", (ev) => {
     const room = ev.detail;
+        if (DEBUG_ROOM_FLOW) {
+      console.log("[EVENT room-state]", {
+        started: room.started,
+        ended: room.ended,
+        paused: room.paused,
+        timer: room.timer,
+        players: room.players.map((p) => ({
+          id: p.id,
+          name: p.name,
+          slot: p.slot,
+          dead: p.dead,
+          health: p.health,
+        })),
+      });
+    }
+
 
     // update game active flag
     isGameActive = !!room.started && !room.ended && !room.paused;
@@ -527,7 +626,18 @@
     });
   })();
 
-  window.addEventListener("net-state", (ev) => applyRoom(ev.detail));
+    window.addEventListener("net-state", (ev) => {
+    const room = ev.detail;
+    if (DEBUG_ROOM_FLOW) {
+      dbg(
+        `net-state-${room.id || "room"}`,
+        "[EVENT net-state]",
+        { started: room.started, ended: room.ended, paused: room.paused, timer: room.timer }
+      );
+    }
+    applyRoom(room);
+  });
+
   window.addEventListener("net-timer", (ev) => {
     if (timerEl) timerEl.textContent = ev.detail;
   });
@@ -544,6 +654,8 @@
   }
 
   window.addEventListener("net-gameover", (ev) => {
+        if (DEBUG_ROOM_FLOW) console.log("[EVENT net-gameover]", ev.detail);
+
     const resultText = ev.detail || "Game Over";
 
     // show big center text
@@ -603,8 +715,10 @@
     const { opponentName } = ev.detail;
     MenuUI.showRematchDialog(opponentName);
   });
-
+   */
   window.addEventListener("net-rematch-accepted", () => {
+        console.log("[EVENT net-rematch-accepted]");
+
     MenuUI.closeMenu();
     MenuUI.showSystemMessage("Opponent accepted! Starting new round...", 2000);
 
@@ -619,7 +733,7 @@
     // optional: ensure background returns
     window.audioManager?.resumeBackground?.();
   });
-
+/*
   window.addEventListener("net-rematch-declined", () => {
     MenuUI.closeMenu();
     MenuUI.showSystemMessage("Opponent declined the rematch");
@@ -634,6 +748,7 @@
   });*/
 
   window.addEventListener("net-hit", (ev) => {
+    if (DEBUG_DEATH) console.log("[EVENT net-hit]", ev.detail);
     const { victimId, victimDead } = ev.detail || {};
     const f = fighters.get(victimId);
     if (!f) return;
@@ -642,6 +757,9 @@
 
     if (victimDead) {
       if (!f._dead) {
+         f._hitAnim = false;
+  f._attackAnim = false;
+  f._waitRelease = false;
         f._dead = true;
         f._state = "death";
         f.switchSprite("death");
