@@ -344,7 +344,16 @@
         const info = document.getElementById("menu-info");
         const title = document.getElementById("menu-title");
 
+        window.__ROOM_ABORTED__ = true;
+
         MenuUI.openMenu();
+
+        // make sure the winner/tie overlay never covers the quit menu
+        const overlay = document.getElementById("displayText");
+        if (overlay) {
+          overlay.style.display = "none";
+          overlay.textContent = "";
+        }
 
         if (title) title.textContent = "Opponent Left";
         if (info)
