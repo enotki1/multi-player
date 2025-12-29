@@ -803,6 +803,7 @@ setInterval(() => {
 }, 1000 / TICK_RATE);
 
 // ✅ Start server once
-server.listen(PORT, () =>
-  console.log(`Server running: http://localhost:${PORT}`)
-);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
