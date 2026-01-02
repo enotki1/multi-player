@@ -11,9 +11,7 @@ console.log("[net.js] loaded");
     return;
   }
 
-  /**
-   * Retrieve player name from session or ask if missing.
-   */
+  // Retrieve player name from session or ask if missing
   function getOrAskName() {
     let name = sessionStorage.getItem("playerName");
     if (name && name.trim()) return name.trim();
@@ -31,9 +29,7 @@ console.log("[net.js] loaded");
 
   const name = getOrAskName();
 
-  /**
-   * Expose NET object globally (input sending, ids, etc.)
-   */
+  // Expose NET object globally (input sending, ids, etc.)
   window.NET = {
     socket,
     roomId,
@@ -74,7 +70,9 @@ console.log("[net.js] loaded");
 
   // Game over event
   socket.on("game-over", ({ winnerText }) => {
-    window.dispatchEvent(new CustomEvent("net-gameover", { detail: winnerText }));
+    window.dispatchEvent(
+      new CustomEvent("net-gameover", { detail: winnerText })
+    );
   });
 
   // Handle hit event
@@ -85,30 +83,59 @@ console.log("[net.js] loaded");
   // Receive menu actions broadcasted to everyone in the room
   socket.on("menu-action", (payload) => {
     console.log("[net.js] menu-action from server", payload);
-    window.dispatchEvent(new CustomEvent("net-menu-action", { detail: payload }));
+    window.dispatchEvent(
+      new CustomEvent("net-menu-action", { detail: payload })
+    );
   });
 
   socket.on("menu-action-denied", (payload) => {
-    window.dispatchEvent(new CustomEvent("net-menu-action-denied", { detail: payload }));
+    window.dispatchEvent(
+      new CustomEvent("net-menu-action-denied", { detail: payload })
+    );
   });
-  
 
-  // Forward menu actions (pause/resume/quit) to the server
+  // =========================
+  // Lobby: start game request
+  // =========================
+  document.addEventListener("lobby:startRequest", () => {
+    console.log("[net.js] lobby:startRequest -> emit start-game", { roomId });
+    socket.emit("start-game", { roomId });
+  });
+
+  socket.on("start-game-denied", (payload) => {
+    window.dispatchEvent(
+      new CustomEvent("net-start-denied", { detail: payload })
+    );
+  });
+
+  // =========================
+  // Pause menu actions
+  // =========================
   document.addEventListener("menu:pauseRequest", () => {
-    socket.emit("menu-action", { roomId, action: "pause", name: window.NET.myName });
+    socket.emit("menu-action", {
+      roomId,
+      action: "pause",
+      name: window.NET.myName,
+    });
   });
 
   document.addEventListener("menu:resumeRequest", () => {
-    socket.emit("menu-action", { roomId, action: "resume", name: window.NET.myName });
+    socket.emit("menu-action", {
+      roomId,
+      action: "resume",
+      name: window.NET.myName,
+    });
   });
 
   document.addEventListener("menu:quitRequest", () => {
     // Inform server and all players
-    socket.emit("menu-action", { roomId, action: "quit", name: window.NET.myName });
+    socket.emit("menu-action", {
+      roomId,
+      action: "quit",
+      name: window.NET.myName,
+    });
 
-  
-
-    // Backward compatibility (if server still expects this event somewhere)
+    // Optional legacy event (safe try/catch)
     try {
       socket.emit("playerQuit", { roomId, name: window.NET.myName });
     } catch (err) {

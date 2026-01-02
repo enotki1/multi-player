@@ -54,6 +54,7 @@ const rooms = new Map();
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
+
 function sanitizeName(name) {
   return String(name || "")
     .trim()
@@ -72,6 +73,10 @@ function makeRoom(roomId) {
     // Tracks who paused the game (only this player can resume)
     pausedById: null,
     pausedByName: "",
+
+    // Leader / host (first player who joined). Only the leader can start the game.
+    leaderId: null,
+    leaderName: "",
 
     timer: ROUND_SECONDS,
     lastSecondTick: Date.now(),
@@ -112,6 +117,11 @@ function roomPublicState(room) {
     paused: !!room.paused,
     timer: room.timer,
     winnerText: room.winnerText,
+
+    // Leader info for Lobby UI
+    leaderId: room.leaderId,
+    leaderName: room.leaderName,
+
     players: [...room.players.values()].map((p) => ({
       id: p.id,
       name: p.name,
@@ -131,14 +141,35 @@ function roomPublicState(room) {
 function updateFacing(room) {
   const ps = [...room.players.values()];
   if (ps.length < 2) return;
-  const a = ps[0],
-    b = ps[1];
+
+  const a = ps[0];
+  const b = ps[1];
+
   if (a.x < b.x) {
     a.facing = 1;
     b.facing = -1;
   } else {
     a.facing = -1;
     b.facing = 1;
+  }
+}
+
+/**
+ * Ensures the room has a valid leader.
+ * - If the current leader is still connected, nothing changes.
+ * - If the leader left, assigns the first remaining player as the new leader.
+ * - If the room is empty, clears leader fields.
+ */
+function reassignLeaderIfNeeded(room) {
+  if (room.leaderId && room.players.has(room.leaderId)) return;
+
+  const first = room.players.values().next().value;
+  if (first) {
+    room.leaderId = first.id;
+    room.leaderName = first.name || "Host";
+  } else {
+    room.leaderId = null;
+    room.leaderName = "";
   }
 }
 
@@ -541,14 +572,44 @@ io.on("connection", (socket) => {
       attackCooldown: 0,
     });
 
+    // Assign leader if this is the first player in the room
+if (!room.leaderId) {
+  room.leaderId = socket.id;
+  room.leaderName = name;
+}
+
     io.to(roomId).emit("room-state", roomPublicState(room));
 
-    if (!room.started && !room.ended) {
-      if (room.players.size == 2) {
-        startRound(room);
-      }
-    }
   });
+
+  socket.on("start-game", ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+  
+    // Only the leader can start the game
+    if (room.leaderId !== socket.id) {
+      socket.emit("start-game-denied", { reason: "Only the host can start the game." });
+      return;
+    }
+  
+    // Must be exactly 2 players
+    if (room.players.size !== 2) {
+      socket.emit("start-game-denied", { reason: "Need exactly 2 players to start." });
+      return;
+    }
+  
+    if (room.started || room.ended) return;
+  
+    room.started = true;
+    room.paused = false;
+    room.pausedById = null;
+    room.pausedByName = "";
+    room.lastSecondTick = Date.now();
+  
+    io.to(roomId).emit("room-state", roomPublicState(room));
+    startRound(room);
+  });
+  
 
   socket.on("menu-action", ({ roomId, action, name }) => {
   const room = rooms.get(roomId);
