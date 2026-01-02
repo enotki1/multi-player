@@ -789,9 +789,9 @@ io.on("connection", (socket) => {
       if (room.players.size === 0) rooms.delete(id);
     }
   });
-}); // ✅ Close io.on("connection", ...)
+}); // Close io.on("connection", ...)
 
-// ✅ Global tick (must run once for the whole server)
+// Global tick (must run once for the whole server)
 setInterval(() => {
   for (const room of rooms.values()) tickRoom(room);
   for (const room of rooms.values()) checkAndSpawnHearts(room);
@@ -802,7 +802,7 @@ setInterval(() => {
   }
 }, 1000 / TICK_RATE);
 
-// ✅ Start server once
+// Start server once
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });

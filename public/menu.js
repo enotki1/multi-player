@@ -322,10 +322,10 @@
 
         MenuUI.openMenu(text);
 
-        // ✅ set labels to Pause mode (Resume/Quit) and set text in menu-info
+        //  set labels to Pause mode (Resume/Quit) and set text in menu-info
         window.__setMenuMode?.("pause", { text });
 
-        // ✅ lock controls based on ownership (other player can't resume)
+        // lock controls based on ownership (other player can't resume)
         setMenuLock({ isOwner, pausedByName: who });
 
         window.audioManager?.playPause();

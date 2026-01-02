@@ -13,8 +13,6 @@
     }
   
     function goToJoin() {
-      // Use "/" if your server serves index.html on root.
-      // If not, change to "/index.html".
       location.href = "/";
     }
   

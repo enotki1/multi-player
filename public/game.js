@@ -2,9 +2,9 @@
 (() => {
   const DEBUG_INPUT = false;
   // ===== DEBUG =====
-  const DEBUG_DEATH = true; // смерть/ресеты
+  const DEBUG_DEATH = true; // death/resets
   const DEBUG_ROOM_FLOW = true; // started/ended transitions
-  const DEBUG_THROTTLE_MS = 500; // антиспам (мс)
+  const DEBUG_THROTTLE_MS = 500; // antispam
 
   const _dbgLast = new Map(); // key -> timestamp
   function dbg(key, ...args) {
@@ -102,7 +102,7 @@
   }
   new ResizeObserver(fitToScreenStable).observe(document.documentElement);
 
-  // защита от двойной загрузки
+  
   if (window.__GAME_JS_LOADED__) {
     console.warn("[CLIENT] game.js loaded twice - ignoring second load");
     return;
@@ -295,14 +295,14 @@
     f._dead = false;
     f._attacking = false;
 
-    // ✅ hard-freeze winner after round end
+    // hard-freeze winner after round end
 
-    f._srvAttacking = false; // что говорит сервер сейчас
-    f._prevSrvAttacking = false; // что было на прошлом апдейте
-    f._attackAnim = false; // сейчас проигрываем attack1?
+    f._srvAttacking = false; // what server sends now
+    f._prevSrvAttacking = false; // what was on the last update
+    f._attackAnim = false; // attack now?
     f._waitRelease = false;
-    f._hitAnim = false; // проигрываем takeHit до конца (локальный лок)
-    // анимацию сыграли, ждём пока сервер отпустит attacking
+    f._hitAnim = false; // play takeHit for the end 
+    
     f.id = p.id;
     return f;
   }
@@ -343,7 +343,7 @@
     f.draw();
   }
 
-  // ---- INPUT (удерживаемое) ----
+  // ---- INPUT ----
   const keys = { left: false, right: false, block: false };
 
   function sendInput() {
@@ -463,16 +463,16 @@
       );
 
       f._dead = srvDead;
-      // 🔒 HARD GUARD: нельзя рисовать death, если сервер говорит "жив"
+      // HARD GUARD:cant draw death, if server says live 
       if (!f._dead && isSprite(f, "death")) {
-        // обходим возможный guard в switchSprite() (который часто запрещает выход из death)
-        f.image = null; // сброс текущей картинки, чтобы switchSprite точно сработал
+        
+        f.image = null;  сработал
         f._state = "idle";
         f.switchSprite("idle");
         f.frameCurrent = 0;
       }
 
-      // если был мёртв, а сервер оживил — сбросить локальные локи
+      
       if (wasDead && !f._dead) {
         console.warn("[REVIVE detected]", pLabel(p), {
           room: {
@@ -495,7 +495,7 @@
         });
       }
 
-      // если сервер сказал dead=true — фиксируем
+   
       if (!wasDead && f._dead) {
         console.error("[DEAD detected from server]", pLabel(p), {
           room: {
@@ -524,9 +524,9 @@
         f._waitRelease = false;
       }
 
-      // ✅ ABSOLUTE FIX: after round end, winner is frozen (no animateFrame)
+      // ABSOLUTE FIX: after round end, winner is frozen (no animateFrame)
       if (room.ended && !f._dead) {
-        // победитель: уйти в idle и больше не атаковать
+        
         f._attacking = false;
         f._state = "idle";
         f.switchSprite("idle");
@@ -819,11 +819,11 @@
 
     if (f._dead) return;
 
-    // ✅ сбиваем любые "ожидания атаки", чтобы hit точно показывался
+    
     f._attackAnim = false;
     f._waitRelease = false;
 
-    // ✅ запускаем takeHit и лочим его до конца
+    
     f._hitAnim = true;
     f._state = "takeHit";
     f.switchSprite("takeHit");
@@ -896,7 +896,7 @@
       }
 
       // takeHit: uninterruptible while playing
-      // ✅ takeHit: play fully, cannot be overridden by idle/run/jump/fall
+      // takeHit: play fully, cannot be overridden by idle/run/jump/fall
       if (f._hitAnim) {
         if (!isSprite(f, "takeHit")) {
           f._state = "takeHit";
