@@ -1,10 +1,10 @@
 // public/js/game.js
 (() => {
   const DEBUG_INPUT = false;
-  // ===== DEBUG =====
-  const DEBUG_DEATH = true; // death/resets
-  const DEBUG_ROOM_FLOW = true; // started/ended transitions
-  const DEBUG_THROTTLE_MS = 500; // antispam
+  // --- debug ---
+  const DEBUG_DEATH = true; // death / revive logs
+  const DEBUG_ROOM_FLOW = true; // room state logs
+  const DEBUG_THROTTLE_MS = 500; // limit spam logs
 
   const _dbgLast = new Map(); // key -> timestamp
   function dbg(key, ...args) {
@@ -23,7 +23,7 @@
   const BASE_W = 1024;
   const BASE_H = 576;
 
-  // Coin spawn & trajectory tuning
+  // --- heart spawn params ---
   const COIN_SPAWN_X = 650; // approx. x of the glowing hole
   const COIN_SPAWN_Y = 220; // approx. y of the hole
   const COIN_TARGET_X = BASE_W / 2; // where we want them to land (center)
@@ -154,20 +154,20 @@
     el.style.width = "40px";
     el.style.height = "40px";
 
-    // Use pixel-art coin image
+    // pixel-art coin image
     el.style.backgroundImage = 'url("./img/heart.jpg")';
     el.style.backgroundSize = "contain";
     el.style.backgroundRepeat = "no-repeat";
     el.style.backgroundPosition = "center";
     el.style.imageRendering = "pixelated"; // keep it crisp
 
-    // Remove old circle styles
-    // (no borderRadius, no boxShadow now)
 
-    el.style.left = x + "px";
-    el.style.top = y + "px";
-    el.style.zIndex = "2";
-    fightersLayer.appendChild(el);
+   el.style.left = "0px";
+el.style.top = "0px";
+el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+el.style.willChange = "transform"; 
+el.style.zIndex = "2";
+fightersLayer.appendChild(el);
 
     const coinObj = {
       el,
@@ -194,7 +194,7 @@
     // don’t flood the map
     if (coins.size > 0) return;
 
-    // how many can we still add?
+    // how many can we still add
     const remaining = MAX_HEARTS_ON_FIELD - coins.size;
 
     // 1–2 hearts per wave, but not more than remaining
@@ -223,8 +223,6 @@
     }
   }
 
-  // Spawn coins every 5 seconds
-  //setInterval(spawnCoins, 5000);
 
   function makeFighterDOM() {
     const el = document.createElement("div");
@@ -506,7 +504,7 @@
           srv: { dead: srvDead, health: p.health },
         });
       }
-      // ===== END DEBUG =====
+      
 
       f._prevSrvAttacking = f._srvAttacking;
       f._srvAttacking = !room.ended && !p.dead ? !!p.attacking : false;
@@ -524,7 +522,7 @@
         f._waitRelease = false;
       }
 
-      // ABSOLUTE FIX: after round end, winner is frozen (no animateFrame)
+      //  after round end, winner is frozen (no animateFrame)
       if (room.ended && !f._dead) {
         
         f._attacking = false;
@@ -771,7 +769,7 @@
     MenuUI.closeMenu();
     MenuUI.showSystemMessage("Opponent accepted! Starting new round...", 2000);
 
-    // ✅ reset overlay + local fighter animations immediately
+    // reset overlay + local fighter animations immediately
     overlayEl.style.display = "none";
     overlayEl.textContent = "";
 
@@ -868,185 +866,184 @@
     }
   });*/
 
-  // ======== 60 FPS LOOP ========
-  function animate() {
-    requestAnimationFrame(animate);
+// ======== TIME-BASED LOOP ========
+let _lastT = performance.now();
 
-    backgrround.update({ freeze: false });
-    //shop.update({ freeze: false });
+function animate(now) {
+  requestAnimationFrame(animate);
 
-    for (const f of fighters.values()) {
-      // позиция по сети
-      f.position.x += (f._netX - f.position.x) * 0.35;
-      f.position.y = f._netY;
+  const dt = now - _lastT;
+  _lastT = now;
 
-      // death: play once then hold
-      if (f._dead) {
-        if (f._state !== "death") {
-          f._state = "death";
-          f.switchSprite("death");
-        }
-        if (isAnimPlaying(f, "death")) {
-          f.animateFrame();
-          f.draw();
-        } else {
-          holdLastFrame(f, "death");
-        }
-        continue;
+  backgrround.update({ freeze: false }, dt);
+
+  for (const f of fighters.values()) {
+    // позиция по сети
+    f.position.x += (f._netX - f.position.x) * 0.35;
+    f.position.y = f._netY;
+
+    // death: play once then hold
+    if (f._dead) {
+      if (f._state !== "death") {
+        f._state = "death";
+        f.switchSprite("death");
       }
-
-      // takeHit: uninterruptible while playing
-      // takeHit: play fully, cannot be overridden by idle/run/jump/fall
-      if (f._hitAnim) {
-        if (!isSprite(f, "takeHit")) {
-          f._state = "takeHit";
-          f.switchSprite("takeHit");
-        }
-
-        if (isAnimPlaying(f, "takeHit")) {
-          f.animateFrame();
-          f.draw();
-          continue;
-        }
-
-        // last frame reached -> unlock and go idle
-        f._hitAnim = false;
-        f._state = "idle";
-        f.switchSprite("idle");
-        f.animateFrame();
+      if (isAnimPlaying(f, "death")) {
+        f.animateFrame(dt);
         f.draw();
-        continue;
+      } else {
+        holdLastFrame(f, "death");
       }
-
-      // attack: do not loop, hold last frame while server says attacking
-      // attack animation: play once, then go idle and wait server release (no freeze, no double)
-      if (f._attackAnim) {
-        if (f._state !== "attack1") {
-          f._state = "attack1";
-          f.switchSprite("attack1");
-        }
-
-        if (isAnimPlaying(f, "attack1")) {
-          f.animateFrame();
-          f.draw();
-          continue;
-        }
-
-        // animation finished
-        f._attackAnim = false;
-        f._waitRelease = true;
-
-        // go idle immediately (so it doesn't "stick" on last attack frame)
-        f._state = "idle";
-        f.switchSprite("idle");
-        f.animateFrame();
-        f.draw();
-        continue;
-      }
-
-      // while server still says attacking=true, do NOT restart attack1
-      // just stay idle until server releases attacking=false
-      if (f._waitRelease && f._srvAttacking) {
-        if (f._state !== "idle") {
-          f._state = "idle";
-          f.switchSprite("idle");
-        }
-        f.animateFrame();
-        f.draw();
-        continue;
-      }
-
-      // normal state selection
-      const dx = f._netX - f._lastNetX;
-      const dy = f._netY - f._lastNetY;
-
-      let next = "idle";
-      if (dy < -0.1) next = "jump";
-      else if (dy > 0.1) next = "fall";
-      else if (Math.abs(dx) > 0.1) next = "run";
-
-      if (f._state !== next) {
-        f._state = next;
-        f.switchSprite(next);
-      }
-
-      f.animateFrame();
-      f.draw();
+      continue;
     }
 
-    // Update coins
-    for (const [id, coin] of coins.entries()) {
-      if (coin.collected) {
-        coins.delete(id);
+    // takeHit: uninterruptible while playing
+    if (f._hitAnim) {
+      if (!isSprite(f, "takeHit")) {
+        f._state = "takeHit";
+        f.switchSprite("takeHit");
+      }
+
+      if (isAnimPlaying(f, "takeHit")) {
+        f.animateFrame(dt);
+        f.draw();
         continue;
       }
 
-      coin.life--;
-      if (coin.life <= 0) {
+      // last frame reached -> unlock and go idle
+      f._hitAnim = false;
+      f._state = "idle";
+      f.switchSprite("idle");
+      f.animateFrame(dt);
+      f.draw();
+      continue;
+    }
+
+    // attack: play once then go idle and wait server release
+    if (f._attackAnim) {
+      if (f._state !== "attack1") {
+        f._state = "attack1";
+        f.switchSprite("attack1");
+      }
+
+      if (isAnimPlaying(f, "attack1")) {
+        f.animateFrame(dt);
+        f.draw();
+        continue;
+      }
+
+      // animation finished
+      f._attackAnim = false;
+      f._waitRelease = true;
+
+      // go idle immediately
+      f._state = "idle";
+      f.switchSprite("idle");
+      f.animateFrame(dt);
+      f.draw();
+      continue;
+    }
+
+    // while server still says attacking=true, do NOT restart attack1
+    if (f._waitRelease && f._srvAttacking) {
+      if (f._state !== "idle") {
+        f._state = "idle";
+        f.switchSprite("idle");
+      }
+      f.animateFrame(dt);
+      f.draw();
+      continue;
+    }
+
+    // normal state selection
+    const dx = f._netX - f._lastNetX;
+    const dy = f._netY - f._lastNetY;
+
+    let next = "idle";
+    if (dy < -0.1) next = "jump";
+    else if (dy > 0.1) next = "fall";
+    else if (Math.abs(dx) > 0.1) next = "run";
+
+    if (f._state !== next) {
+      f._state = next;
+      f.switchSprite(next);
+    }
+
+    f.animateFrame(dt);
+    f.draw();
+  }
+
+  // ===== COINS UPDATE (FIX #2: use transform, not left/top) =====
+  for (const [id, coin] of coins.entries()) {
+    if (coin.collected) {
+      coins.delete(id);
+      continue;
+    }
+
+    coin.life--;
+    if (coin.life <= 0) {
+      coin.el.remove();
+      coins.delete(id);
+      continue;
+    }
+
+    // Physics
+    coin.x += coin.vx;
+    coin.y += coin.vy;
+    coin.vy += 0.3; // Gravity
+
+    // Ground collision – stop on the floor
+    const GROUND_Y = 480;
+    if (coin.y >= GROUND_Y) {
+      coin.y = GROUND_Y;
+      coin.vy = 0;
+      coin.vx = 0;
+      coin.baseY = coin.y; // bob around the floor position
+    }
+
+    // Idle bobbing (visual only)
+    if (coin.vy === 0) {
+      coin.bobPhase += 0.02;
+      coin.y = coin.baseY + Math.sin(coin.bobPhase) * 2;
+    }
+
+    // FIX: position via transform
+    coin.el.style.transform = `translate3d(${Math.round(coin.x)}px, ${Math.round(
+      coin.y
+    )}px, 0)`;
+
+    // Check collision with fighters
+    for (const [playerId, f] of fighters.entries()) {
+      const feetX = f.position.x + f.width / 2;
+      const feetY = f.position.y + f.height;
+
+      const coinCenterX = coin.x + 16;
+      const coinCenterY = coin.y + 16;
+
+      const dx = Math.abs(coinCenterX - feetX);
+      const dy = Math.abs(coinCenterY - feetY);
+
+      if (dx < 60 && dy < 60) {
+        coin.collected = true;
         coin.el.remove();
-        coins.delete(id);
-        continue;
-      }
 
-      // Physics
-      coin.x += coin.vx;
-      coin.y += coin.vy;
-      coin.vy += 0.3; // Gravity
+        audioManager.play("heartPickup", 0.9);
 
-      // Ground collision – stop on the floor
-      const GROUND_Y = 480;
-      if (coin.y >= GROUND_Y) {
-        coin.y = GROUND_Y;
-        coin.vy = 0;
-        coin.vx = 0;
-        coin.baseY = coin.y; // bob around the floor position
-      }
-
-      // Idle bobbing (visual only)
-      if (coin.vy === 0) {
-        coin.bobPhase += 0.02;
-        coin.y = coin.baseY + Math.sin(coin.bobPhase) * 2;
-      }
-
-      coin.el.style.left = coin.x + "px";
-      coin.el.style.top = coin.y + "px";
-
-      // Check collision with fighters
-      for (const [playerId, f] of fighters.entries()) {
-        // use fighter's feet as pickup point
-        const feetX = f.position.x + f.width / 2;
-        const feetY = f.position.y + f.height;
-
-        // use coin center
-        const coinCenterX = coin.x + 16; // 32px / 2
-        const coinCenterY = coin.y + 16;
-
-        const dx = Math.abs(coinCenterX - feetX);
-        const dy = Math.abs(coinCenterY - feetY);
-
-        // pickup zone around the feet
-        if (dx < 60 && dy < 60) {
-          // Heart collected!
-          coin.collected = true;
-          coin.el.remove();
-
-          audioManager.play("heartPickup", 0.9);
-
-          // Emit to server that player picked up heart
-          if (window.NET) {
-            window.NET.socket.emit("coin-pickup", {
-              roomId: window.NET.roomId,
-              playerId, // <-- this is the key in room.players on the server
-              heartId: id, // <-- send the heart ID so server can track it
-            });
-          }
-
-          coins.delete(id);
-          break;
+        if (window.NET) {
+          window.NET.socket.emit("coin-pickup", {
+            roomId: window.NET.roomId,
+            playerId,
+            heartId: id,
+          });
         }
+
+        coins.delete(id);
+        break;
       }
     }
   }
+}
 
-  animate();
+requestAnimationFrame(animate);
 })();
+
