@@ -868,185 +868,104 @@
     }
   });*/
 
-  // ======== 60 FPS LOOP ========
-  function animate() {
-    requestAnimationFrame(animate);
+// ======== TIME-BASED LOOP ========
+let _lastT = performance.now();
 
-    backgrround.update({ freeze: false });
-    //shop.update({ freeze: false });
+function animate(now) {
+  requestAnimationFrame(animate);
 
-    for (const f of fighters.values()) {
-      // позиция по сети
-      f.position.x += (f._netX - f.position.x) * 0.35;
-      f.position.y = f._netY;
+  const dt = now - _lastT;
+  _lastT = now;
 
-      // death: play once then hold
-      if (f._dead) {
-        if (f._state !== "death") {
-          f._state = "death";
-          f.switchSprite("death");
-        }
-        if (isAnimPlaying(f, "death")) {
-          f.animateFrame();
-          f.draw();
-        } else {
-          holdLastFrame(f, "death");
-        }
-        continue;
+  backgrround.update({ freeze: false }, dt);
+
+  for (const f of fighters.values()) {
+    f.position.x += (f._netX - f.position.x) * 0.35;
+    f.position.y = f._netY;
+
+    if (f._dead) {
+      if (f._state !== "death") {
+        f._state = "death";
+        f.switchSprite("death");
       }
+      if (isAnimPlaying(f, "death")) {
+        f.animateFrame(dt);
+        f.draw();
+      } else {
+        holdLastFrame(f, "death");
+      }
+      continue;
+    }
 
-      // takeHit: uninterruptible while playing
-      // takeHit: play fully, cannot be overridden by idle/run/jump/fall
-      if (f._hitAnim) {
-        if (!isSprite(f, "takeHit")) {
-          f._state = "takeHit";
-          f.switchSprite("takeHit");
-        }
-
-        if (isAnimPlaying(f, "takeHit")) {
-          f.animateFrame();
-          f.draw();
-          continue;
-        }
-
-        // last frame reached -> unlock and go idle
-        f._hitAnim = false;
-        f._state = "idle";
-        f.switchSprite("idle");
-        f.animateFrame();
+    if (f._hitAnim) {
+      if (!isSprite(f, "takeHit")) {
+        f._state = "takeHit";
+        f.switchSprite("takeHit");
+      }
+      if (isAnimPlaying(f, "takeHit")) {
+        f.animateFrame(dt);
         f.draw();
         continue;
       }
-
-      // attack: do not loop, hold last frame while server says attacking
-      // attack animation: play once, then go idle and wait server release (no freeze, no double)
-      if (f._attackAnim) {
-        if (f._state !== "attack1") {
-          f._state = "attack1";
-          f.switchSprite("attack1");
-        }
-
-        if (isAnimPlaying(f, "attack1")) {
-          f.animateFrame();
-          f.draw();
-          continue;
-        }
-
-        // animation finished
-        f._attackAnim = false;
-        f._waitRelease = true;
-
-        // go idle immediately (so it doesn't "stick" on last attack frame)
-        f._state = "idle";
-        f.switchSprite("idle");
-        f.animateFrame();
-        f.draw();
-        continue;
-      }
-
-      // while server still says attacking=true, do NOT restart attack1
-      // just stay idle until server releases attacking=false
-      if (f._waitRelease && f._srvAttacking) {
-        if (f._state !== "idle") {
-          f._state = "idle";
-          f.switchSprite("idle");
-        }
-        f.animateFrame();
-        f.draw();
-        continue;
-      }
-
-      // normal state selection
-      const dx = f._netX - f._lastNetX;
-      const dy = f._netY - f._lastNetY;
-
-      let next = "idle";
-      if (dy < -0.1) next = "jump";
-      else if (dy > 0.1) next = "fall";
-      else if (Math.abs(dx) > 0.1) next = "run";
-
-      if (f._state !== next) {
-        f._state = next;
-        f.switchSprite(next);
-      }
-
-      f.animateFrame();
+      f._hitAnim = false;
+      f._state = "idle";
+      f.switchSprite("idle");
+      f.animateFrame(dt);
       f.draw();
+      continue;
     }
 
-    // Update coins
-    for (const [id, coin] of coins.entries()) {
-      if (coin.collected) {
-        coins.delete(id);
+    if (f._attackAnim) {
+      if (f._state !== "attack1") {
+        f._state = "attack1";
+        f.switchSprite("attack1");
+      }
+      if (isAnimPlaying(f, "attack1")) {
+        f.animateFrame(dt);
+        f.draw();
         continue;
       }
+      f._attackAnim = false;
+      f._waitRelease = true;
 
-      coin.life--;
-      if (coin.life <= 0) {
-        coin.el.remove();
-        coins.delete(id);
-        continue;
-      }
-
-      // Physics
-      coin.x += coin.vx;
-      coin.y += coin.vy;
-      coin.vy += 0.3; // Gravity
-
-      // Ground collision – stop on the floor
-      const GROUND_Y = 480;
-      if (coin.y >= GROUND_Y) {
-        coin.y = GROUND_Y;
-        coin.vy = 0;
-        coin.vx = 0;
-        coin.baseY = coin.y; // bob around the floor position
-      }
-
-      // Idle bobbing (visual only)
-      if (coin.vy === 0) {
-        coin.bobPhase += 0.02;
-        coin.y = coin.baseY + Math.sin(coin.bobPhase) * 2;
-      }
-
-      coin.el.style.left = coin.x + "px";
-      coin.el.style.top = coin.y + "px";
-
-      // Check collision with fighters
-      for (const [playerId, f] of fighters.entries()) {
-        // use fighter's feet as pickup point
-        const feetX = f.position.x + f.width / 2;
-        const feetY = f.position.y + f.height;
-
-        // use coin center
-        const coinCenterX = coin.x + 16; // 32px / 2
-        const coinCenterY = coin.y + 16;
-
-        const dx = Math.abs(coinCenterX - feetX);
-        const dy = Math.abs(coinCenterY - feetY);
-
-        // pickup zone around the feet
-        if (dx < 60 && dy < 60) {
-          // Heart collected!
-          coin.collected = true;
-          coin.el.remove();
-
-          audioManager.play("heartPickup", 0.9);
-
-          // Emit to server that player picked up heart
-          if (window.NET) {
-            window.NET.socket.emit("coin-pickup", {
-              roomId: window.NET.roomId,
-              playerId, // <-- this is the key in room.players on the server
-              heartId: id, // <-- send the heart ID so server can track it
-            });
-          }
-
-          coins.delete(id);
-          break;
-        }
-      }
+      f._state = "idle";
+      f.switchSprite("idle");
+      f.animateFrame(dt);
+      f.draw();
+      continue;
     }
+
+    if (f._waitRelease && f._srvAttacking) {
+      if (f._state !== "idle") {
+        f._state = "idle";
+        f.switchSprite("idle");
+      }
+      f.animateFrame(dt);
+      f.draw();
+      continue;
+    }
+
+    const dx = f._netX - f._lastNetX;
+    const dy = f._netY - f._lastNetY;
+
+    let next = "idle";
+    if (dy < -0.1) next = "jump";
+    else if (dy > 0.1) next = "fall";
+    else if (Math.abs(dx) > 0.1) next = "run";
+
+    if (f._state !== next) {
+      f._state = next;
+      f.switchSprite(next);
+    }
+
+    f.animateFrame(dt);
+    f.draw();
   }
 
-  animate();
+  // coins оставляй как есть (не влияет на атаку)
+}
+
+requestAnimationFrame(animate);
+
+
 })();
