@@ -164,10 +164,12 @@
     // Remove old circle styles
     // (no borderRadius, no boxShadow now)
 
-    el.style.left = x + "px";
-    el.style.top = y + "px";
-    el.style.zIndex = "2";
-    fightersLayer.appendChild(el);
+   el.style.left = "0px";
+el.style.top = "0px";
+el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+el.style.willChange = "transform"; 
+el.style.zIndex = "2";
+fightersLayer.appendChild(el);
 
     const coinObj = {
       el,
@@ -880,9 +882,11 @@ function animate(now) {
   backgrround.update({ freeze: false }, dt);
 
   for (const f of fighters.values()) {
+    // позиция по сети
     f.position.x += (f._netX - f.position.x) * 0.35;
     f.position.y = f._netY;
 
+    // death: play once then hold
     if (f._dead) {
       if (f._state !== "death") {
         f._state = "death";
@@ -897,16 +901,20 @@ function animate(now) {
       continue;
     }
 
+    // takeHit: uninterruptible while playing
     if (f._hitAnim) {
       if (!isSprite(f, "takeHit")) {
         f._state = "takeHit";
         f.switchSprite("takeHit");
       }
+
       if (isAnimPlaying(f, "takeHit")) {
         f.animateFrame(dt);
         f.draw();
         continue;
       }
+
+      // last frame reached -> unlock and go idle
       f._hitAnim = false;
       f._state = "idle";
       f.switchSprite("idle");
@@ -915,19 +923,24 @@ function animate(now) {
       continue;
     }
 
+    // attack: play once then go idle and wait server release
     if (f._attackAnim) {
       if (f._state !== "attack1") {
         f._state = "attack1";
         f.switchSprite("attack1");
       }
+
       if (isAnimPlaying(f, "attack1")) {
         f.animateFrame(dt);
         f.draw();
         continue;
       }
+
+      // animation finished
       f._attackAnim = false;
       f._waitRelease = true;
 
+      // go idle immediately
       f._state = "idle";
       f.switchSprite("idle");
       f.animateFrame(dt);
@@ -935,6 +948,7 @@ function animate(now) {
       continue;
     }
 
+    // while server still says attacking=true, do NOT restart attack1
     if (f._waitRelease && f._srvAttacking) {
       if (f._state !== "idle") {
         f._state = "idle";
@@ -945,6 +959,7 @@ function animate(now) {
       continue;
     }
 
+    // normal state selection
     const dx = f._netX - f._lastNetX;
     const dy = f._netY - f._lastNetY;
 
@@ -962,10 +977,77 @@ function animate(now) {
     f.draw();
   }
 
-  // coins оставляй как есть (не влияет на атаку)
+  // ===== COINS UPDATE (FIX #2: use transform, not left/top) =====
+  for (const [id, coin] of coins.entries()) {
+    if (coin.collected) {
+      coins.delete(id);
+      continue;
+    }
+
+    coin.life--;
+    if (coin.life <= 0) {
+      coin.el.remove();
+      coins.delete(id);
+      continue;
+    }
+
+    // Physics
+    coin.x += coin.vx;
+    coin.y += coin.vy;
+    coin.vy += 0.3; // Gravity
+
+    // Ground collision – stop on the floor
+    const GROUND_Y = 480;
+    if (coin.y >= GROUND_Y) {
+      coin.y = GROUND_Y;
+      coin.vy = 0;
+      coin.vx = 0;
+      coin.baseY = coin.y; // bob around the floor position
+    }
+
+    // Idle bobbing (visual only)
+    if (coin.vy === 0) {
+      coin.bobPhase += 0.02;
+      coin.y = coin.baseY + Math.sin(coin.bobPhase) * 2;
+    }
+
+    // ✅ FIX: position via transform
+    coin.el.style.transform = `translate3d(${Math.round(coin.x)}px, ${Math.round(
+      coin.y
+    )}px, 0)`;
+
+    // Check collision with fighters
+    for (const [playerId, f] of fighters.entries()) {
+      const feetX = f.position.x + f.width / 2;
+      const feetY = f.position.y + f.height;
+
+      const coinCenterX = coin.x + 16;
+      const coinCenterY = coin.y + 16;
+
+      const dx = Math.abs(coinCenterX - feetX);
+      const dy = Math.abs(coinCenterY - feetY);
+
+      if (dx < 60 && dy < 60) {
+        coin.collected = true;
+        coin.el.remove();
+
+        audioManager.play("heartPickup", 0.9);
+
+        if (window.NET) {
+          window.NET.socket.emit("coin-pickup", {
+            roomId: window.NET.roomId,
+            playerId,
+            heartId: id,
+          });
+        }
+
+        coins.delete(id);
+        break;
+      }
+    }
+  }
 }
 
 requestAnimationFrame(animate);
-
-
 })();
+
