@@ -5,6 +5,10 @@
   let isMenuOpen = false;
   let isMuted = false;
 
+  let menuMode = "pause"; // "pause" | "postGame" | "rematchPrompt" | "rematchWaiting"
+  let lastOpponentName = "";
+  let rematchRequesterName = "";
+
   function getEl(id) {
     return document.getElementById(id);
   }
@@ -52,6 +56,16 @@
   // Expose UI helpers globally
   window.MenuUI = MenuUI;
 
+  let pendingMenuMode = null; // { mode, payload }
+
+  function safeSetMode(mode, payload) {
+    if (typeof window.__setMenuMode === "function") {
+      window.__setMenuMode(mode, payload);
+    } else {
+      pendingMenuMode = { mode, payload };
+    }
+  }
+
   function setMenuLock({ isOwner, pausedByName }) {
     const pauseBtn = getEl("pause-button");
     const resumeBtn = getEl("resume-button");
@@ -88,7 +102,10 @@
 
   function createMenuDOM() {
     const parent =
-      getEl("gameRoot") || getEl("scaleLayer") || getEl("viewport") || document.body;
+      getEl("gameRoot") ||
+      getEl("scaleLayer") ||
+      getEl("viewport") ||
+      document.body;
 
     // Pause button
     const pauseBtn = document.createElement("button");
@@ -158,13 +175,47 @@
       document.dispatchEvent(new CustomEvent("menu:pauseRequest"));
     });
 
-    // Resume: send request to server (server will broadcast if allowed)
     resumeBtn.addEventListener("click", () => {
-      document.dispatchEvent(new CustomEvent("menu:resumeRequest"));
+      if (menuMode === "pause") {
+        document.dispatchEvent(new CustomEvent("menu:resumeRequest"));
+        return;
+      }
+
+      if (menuMode === "postGame") {
+        // player requests rematch (one more battle / take revenge)
+        MenuUI.showSystemMessage("Rematch request sent", 1500);
+        setMode("rematchWaiting");
+        MenuUI.openMenu(); // keep open
+        document.dispatchEvent(new CustomEvent("menu:rematchRequest"));
+        return;
+      }
+
+      if (menuMode === "rematchPrompt") {
+        // accept rematch
+        setMode("rematchWaiting");
+        document.dispatchEvent(new CustomEvent("menu:rematchAccepted"));
+        return;
+      }
+
+      if (menuMode === "rematchWaiting") {
+        // cancel waiting
+        setMode("postGame", {
+          resultText: getEl("menu-info")?.textContent || "",
+        });
+        document.dispatchEvent(new CustomEvent("menu:rematchCancelled"));
+        return;
+      }
     });
 
-    // Quit: always available
     quitBtn.addEventListener("click", () => {
+      if (menuMode === "rematchPrompt") {
+        // decline rematch
+        document.dispatchEvent(new CustomEvent("menu:rematchDeclined"));
+        MenuUI.closeMenu();
+        return;
+      }
+
+      // default quit
       document.dispatchEvent(new CustomEvent("menu:quitRequest"));
     });
 
@@ -181,6 +232,72 @@
         isMuted ? "Sound muted (M)" : "Sound unmuted (M)",
         1500
       );
+    }
+
+    function setMode(mode, payload = {}) {
+      menuMode = mode;
+
+      // reset disabled state
+      resumeBtn.disabled = false;
+      quitBtn.disabled = false;
+      resumeBtn.classList.remove("is-disabled");
+      quitBtn.classList.remove("is-disabled");
+
+      if (mode === "pause") {
+        title.textContent = "Game Paused";
+        resumeBtn.textContent = "Resume";
+        quitBtn.textContent = "Quit";
+        if (payload.text) info.textContent = payload.text;
+      }
+
+      if (mode === "postGame") {
+        title.textContent = "Round Over";
+        info.textContent = payload.resultText || "";
+
+        // Choose label based on result text
+        const t = (payload.resultText || "").toLowerCase();
+        const myName = window.NET?.myName || "";
+
+        if (t.includes("tie")) {
+          resumeBtn.textContent = "One More Battle";
+        } else if (
+          t.includes("wins") &&
+          (payload.resultText || "").includes(myName)
+        ) {
+          // you won
+          resumeBtn.textContent = "One More Battle";
+        } else {
+          // you lost
+          resumeBtn.textContent = "Take Revenge";
+        }
+
+        quitBtn.textContent = "Quit";
+      }
+
+      if (mode === "rematchPrompt") {
+        title.textContent = "Rematch?";
+        info.textContent = `${
+          payload.opponentName || "Opponent"
+        } wants to play again`;
+        resumeBtn.textContent = "Accept";
+        quitBtn.textContent = "Decline";
+      }
+
+      if (mode === "rematchWaiting") {
+        title.textContent = "Waiting...";
+        info.textContent = "Waiting for opponent to respond";
+        resumeBtn.textContent = "Cancel";
+        quitBtn.style.display = "none"; // hide decline
+      } else {
+        quitBtn.style.display = "inline-block";
+      }
+    }
+
+    window.__setMenuMode = setMode;
+
+    if (pendingMenuMode) {
+      setMode(pendingMenuMode.mode, pendingMenuMode.payload);
+      pendingMenuMode = null;
     }
 
     soundBtn.addEventListener("click", toggleMute);
@@ -201,52 +318,108 @@
       const isOwner = who === myName;
 
       if (action === "pause") {
-        MenuUI.openMenu(`${who} paused the game`);
+        const text = `${who} paused the game`;
+
+        MenuUI.openMenu(text);
+
+        // ✅ set labels to Pause mode (Resume/Quit) and set text in menu-info
+        window.__setMenuMode?.("pause", { text });
+
+        // ✅ lock controls based on ownership (other player can't resume)
         setMenuLock({ isOwner, pausedByName: who });
+
+        window.audioManager?.playPause();
       }
 
       if (action === "resume") {
         unlockMenuControls();
+        window.__setMenuMode?.("pause"); // resets labels if needed
         MenuUI.closeMenu();
         MenuUI.showSystemMessage(`${who} resumed the game`);
+
+        window.audioManager?.resumeBackground();
       }
 
       if (action === "quit") {
-        const overlay = document.getElementById("menu-overlay");
         const info = document.getElementById("menu-info");
         const title = document.getElementById("menu-title");
-      
+
+        window.__ROOM_ABORTED__ = true;
+
         MenuUI.openMenu();
-      
+
+        // make sure the winner/tie overlay never covers the quit menu
+        const overlay = document.getElementById("displayText");
+        if (overlay) {
+          overlay.style.display = "none";
+          overlay.textContent = "";
+        }
+
         if (title) title.textContent = "Opponent Left";
-        if (info) info.textContent = `${who} quit the game. Returning to Join menu...`;
-      
+        if (info)
+          info.textContent = `${who} quit the game. Returning to Join menu...`;
+
         // Prevent any interaction while redirecting
         const pauseBtn = document.getElementById("pause-button");
         const resumeBtn = document.getElementById("resume-button");
         const quitBtn = document.getElementById("quit-button");
-      
+
         if (pauseBtn) pauseBtn.disabled = true;
         if (resumeBtn) resumeBtn.disabled = true;
         if (quitBtn) quitBtn.disabled = true;
-      
+
         setTimeout(() => {
           sessionStorage.removeItem("playerName");
           location.href = "/";
         }, 1500);
-      }
-      
-      
-    });
 
-    // Show a message only to the player whose request was denied by the server
-    window.addEventListener("net-menu-action-denied", (ev) => {
-      const reason = ev.detail?.reason;
-      if (reason) {
-        MenuUI.showSystemMessage(reason, 2500);
+        window.audioManager?.stopAll();
       }
     });
   }
+
+  // Show a message only to the player whose request was denied by the server
+  window.addEventListener("net-menu-action-denied", (ev) => {
+    const reason = ev.detail?.reason;
+    if (reason) {
+      MenuUI.showSystemMessage(reason, 2500);
+    }
+  });
+
+  window.addEventListener("ui:postgame", (ev) => {
+    const resultText = ev.detail?.resultText || "";
+    MenuUI.openMenu();
+    safeSetMode("postGame", { resultText });
+  });
+
+  window.addEventListener("net-rematch-request", (ev) => {
+    const opponentName = ev.detail?.opponentName || "Opponent";
+    rematchRequesterName = opponentName;
+
+    MenuUI.openMenu();
+    safeSetMode("rematchPrompt", { opponentName });
+  });
+
+  window.addEventListener("net-rematch-declined", () => {
+    MenuUI.showSystemMessage("Opponent declined rematch", 2500);
+    // go back to post-game screen
+    safeSetMode("postGame", {
+      resultText: getEl("menu-info")?.textContent || "",
+    });
+  });
+
+  window.addEventListener("net-rematch-cancelled", () => {
+    MenuUI.showSystemMessage("Rematch request cancelled", 2000);
+    safeSetMode("postGame", {
+      resultText: getEl("menu-info")?.textContent || "",
+    });
+  });
+
+  window.addEventListener("net-rematch-accepted", () => {
+    MenuUI.closeMenu();
+    MenuUI.showSystemMessage("Rematch starting!", 1500);
+    window.audioManager?.resumeBackground?.();
+  });
 
   document.addEventListener("DOMContentLoaded", () => {
     createMenuDOM();
