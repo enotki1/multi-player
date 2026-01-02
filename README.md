@@ -308,3 +308,5 @@ You can test the game on a single computer with two browser windows:
 Each tab/window gets a unique socket connection, allowing real multiplayer testing.
 
 **Enjoy the fight! ⚔️**
+
+🔗 Production Multiplayer: https://multi-player-production.up.railway.app
