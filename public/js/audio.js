@@ -20,7 +20,7 @@ class AudioManager {
     this.loadSound("victory", "./audio/victory.wav");
     this.loadSound("defeat", "./audio/defeat.wav");
 
-    // ❤️ heart-related sounds
+    // heart-related sounds
     this.loadSound("heartSpawn", "./audio/powerup.ogg");
     this.loadSound("heartPickup", "./audio/heart-collect.wav");
 
@@ -32,7 +32,7 @@ class AudioManager {
     this.tieMusic.loop = false;
     this.tieMusic.volume = 0.5;
 
-    this.pauseMusic = new Audio("./audio/hold.wav"); // You'll need to add this file
+    this.pauseMusic = new Audio("./audio/hold.wav"); 
     this.pauseMusic.loop = true;
     this.pauseMusic.volume = 0.3;
 

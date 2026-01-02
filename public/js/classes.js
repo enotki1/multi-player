@@ -6,7 +6,7 @@ class Sprite {
     framesMax = 1,
     offset = { x: 0, y: 0 },
     el,
-    animFps = 12, // ✅ default animation speed
+    animFps = 12, // default animation speed
   }) {
     this.position = position;
     this.scale = scale;
@@ -14,7 +14,7 @@ class Sprite {
     this.frameCurrent = 0;
     this.offset = offset;
 
-    // ✅ time-based animation
+    // time-based animation
     this.animFps = animFps;
     this._frameTimer = 0;
 
@@ -57,7 +57,7 @@ class Sprite {
     }
   }
 
-  // ✅ time-based frame advance
+  // time-based frame advance
   animateFrame(dt = 1000 / 60) {
     if (!this.animFps || this.animFps <= 0 || this.framesMax <= 1) return;
 
@@ -239,10 +239,10 @@ class Fighter extends Sprite {
     this.framesMax = s.framesMax;
     this.frameCurrent = 0;
 
-    // ✅ per-sprite anim speed
+    // per-sprite anim speed
     this.animFps = typeof s.animFps === "number" ? s.animFps : 12;
 
-    // ✅ reset timer on sprite switch
+    // reset timer on sprite switch
     this._frameTimer = 0;
 
     this.sheetEl.style.backgroundImage = `url("${s.imageSrc}")`;

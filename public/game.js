@@ -1,10 +1,10 @@
 // public/js/game.js
 (() => {
   const DEBUG_INPUT = false;
-  // ===== DEBUG =====
-  const DEBUG_DEATH = true; // death/resets
-  const DEBUG_ROOM_FLOW = true; // started/ended transitions
-  const DEBUG_THROTTLE_MS = 500; // antispam
+  // --- debug ---
+  const DEBUG_DEATH = true; // death / revive logs
+  const DEBUG_ROOM_FLOW = true; // room state logs
+  const DEBUG_THROTTLE_MS = 500; // limit spam logs
 
   const _dbgLast = new Map(); // key -> timestamp
   function dbg(key, ...args) {
@@ -23,7 +23,7 @@
   const BASE_W = 1024;
   const BASE_H = 576;
 
-  // Coin spawn & trajectory tuning
+  // --- heart spawn params ---
   const COIN_SPAWN_X = 650; // approx. x of the glowing hole
   const COIN_SPAWN_Y = 220; // approx. y of the hole
   const COIN_TARGET_X = BASE_W / 2; // where we want them to land (center)
@@ -154,15 +154,13 @@
     el.style.width = "40px";
     el.style.height = "40px";
 
-    // Use pixel-art coin image
+    // pixel-art coin image
     el.style.backgroundImage = 'url("./img/heart.jpg")';
     el.style.backgroundSize = "contain";
     el.style.backgroundRepeat = "no-repeat";
     el.style.backgroundPosition = "center";
     el.style.imageRendering = "pixelated"; // keep it crisp
 
-    // Remove old circle styles
-    // (no borderRadius, no boxShadow now)
 
    el.style.left = "0px";
 el.style.top = "0px";
@@ -196,7 +194,7 @@ fightersLayer.appendChild(el);
     // don’t flood the map
     if (coins.size > 0) return;
 
-    // how many can we still add?
+    // how many can we still add
     const remaining = MAX_HEARTS_ON_FIELD - coins.size;
 
     // 1–2 hearts per wave, but not more than remaining
@@ -225,8 +223,6 @@ fightersLayer.appendChild(el);
     }
   }
 
-  // Spawn coins every 5 seconds
-  //setInterval(spawnCoins, 5000);
 
   function makeFighterDOM() {
     const el = document.createElement("div");
@@ -508,7 +504,7 @@ fightersLayer.appendChild(el);
           srv: { dead: srvDead, health: p.health },
         });
       }
-      // ===== END DEBUG =====
+      
 
       f._prevSrvAttacking = f._srvAttacking;
       f._srvAttacking = !room.ended && !p.dead ? !!p.attacking : false;
@@ -526,7 +522,7 @@ fightersLayer.appendChild(el);
         f._waitRelease = false;
       }
 
-      // ABSOLUTE FIX: after round end, winner is frozen (no animateFrame)
+      //  after round end, winner is frozen (no animateFrame)
       if (room.ended && !f._dead) {
         
         f._attacking = false;
@@ -773,7 +769,7 @@ fightersLayer.appendChild(el);
     MenuUI.closeMenu();
     MenuUI.showSystemMessage("Opponent accepted! Starting new round...", 2000);
 
-    // ✅ reset overlay + local fighter animations immediately
+    // reset overlay + local fighter animations immediately
     overlayEl.style.display = "none";
     overlayEl.textContent = "";
 
@@ -1011,7 +1007,7 @@ function animate(now) {
       coin.y = coin.baseY + Math.sin(coin.bobPhase) * 2;
     }
 
-    // ✅ FIX: position via transform
+    // FIX: position via transform
     coin.el.style.transform = `translate3d(${Math.round(coin.x)}px, ${Math.round(
       coin.y
     )}px, 0)`;
