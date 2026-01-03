@@ -145,7 +145,7 @@ console.log("[net.js] loaded");
       action: "pause",
      
       name: window.NET.myName,
-   ,
+   
     });
   });
 
@@ -157,7 +157,7 @@ console.log("[net.js] loaded");
       action: "resume",
      
       name: window.NET.myName,
-   ,
+   
     });
   });
 
