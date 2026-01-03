@@ -1,72 +1,79 @@
 /* lobby.css - lobby overlay shown until the host starts the game */
 
 .lobby-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 950; /* Below pause menu overlay (1000), above the game */
-  }
-  
-  .lobby-overlay.hidden {
-    display: none;
-  }
-  
-  .lobby-panel {
-    background: rgba(10, 10, 10, 0.75);
-    border: 4px solid #ffffff;
-    padding: 16px 18px;
-    width: min(360px, 90vw);
-    text-align: center;
-    font-family: "Press Start 2P", system-ui, sans-serif;
-    color: #ffffff;
-  }
-  
-  .lobby-title {
-    font-size: 12px;
-    margin: 0 0 10px 0;
-  }
-  
-  .lobby-text {
-    font-size: 8px;
-    line-height: 1.6;
-    opacity: 0.9;
-    margin: 0;
-  }
-  
-  .lobby-buttons {
-    margin-top: 12px;
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-  }
-  
-  .lobby-start,
-  .lobby-back {
-    padding: 6px 10px;
-    border: 4px solid #ffffff;
-    background: #000000;
-    color: #ffffff;
-    font-family: "Press Start 2P", system-ui, sans-serif;
-    font-size: 8px;
-    cursor: pointer;
-  }
-  
-  .lobby-start:hover,
-  .lobby-back:hover {
-    transform: translateY(-1px);
-  }
-  
-  .lobby-start:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
-  }
-  
-  /* Make sure the parent can position absolute children */
-  #gameRoot {
-    position: relative;
-  }
-  
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 950; /* Below pause menu overlay (1000), above the game */
+}
+
+.lobby-overlay.hidden {
+  display: none;
+}
+
+.lobby-panel {
+  background: rgba(10, 10, 10, 0.75);
+  border: 4px solid #ffffff;
+  padding: 16px 18px;
+  width: min(360px, 90vw);
+  text-align: center;
+  font-family: "Press Start 2P", system-ui, sans-serif;
+  color: #ffffff;
+}
+
+.lobby-title {
+  font-size: 12px;
+  margin: 0 0 10px 0;
+}
+
+.lobby-text {
+  font-size: 8px;
+  line-height: 1.6;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.lobby-controls {
+  margin-top: 10px;
+  font-size: 7px;
+  color: #c7d2ff;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+.lobby-buttons {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.lobby-start,
+.lobby-back {
+  padding: 6px 10px;
+  border: 4px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  font-family: "Press Start 2P", system-ui, sans-serif;
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.lobby-start:hover,
+.lobby-back:hover {
+  transform: translateY(-1px);
+}
+
+.lobby-start:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Make sure the parent can position absolute children */
+#gameRoot {
+  position: relative;
+}
