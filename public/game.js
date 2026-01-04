@@ -2,8 +2,8 @@
 (() => {
   const DEBUG_INPUT = false;
   // --- debug ---
-  const DEBUG_DEATH = true; // death / revive logs
-  const DEBUG_ROOM_FLOW = true; // room state logs
+  const DEBUG_DEATH = false; // death / revive logs
+  const DEBUG_ROOM_FLOW = false; // room state logs
   const DEBUG_THROTTLE_MS = 500; // limit spam logs
 
   const _dbgLast = new Map(); // key -> timestamp
@@ -136,6 +136,7 @@
   const p2HealthEl = document.getElementById("p2Health");
   const timerEl = document.getElementById("timer");
   const overlayEl = document.getElementById("displayText");
+  
 
   const fighters = new Map();
 
