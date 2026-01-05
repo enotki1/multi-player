@@ -2,8 +2,8 @@
 (() => {
   const DEBUG_INPUT = false;
   // --- debug ---
-  const DEBUG_DEATH = true; // death / revive logs
-  const DEBUG_ROOM_FLOW = true; // room state logs
+  const DEBUG_DEATH = false; // death / revive logs
+  const DEBUG_ROOM_FLOW = false; // room state logs
   const DEBUG_THROTTLE_MS = 500; // limit spam logs
 
   const _dbgLast = new Map(); // key -> timestamp
@@ -136,6 +136,7 @@
   const p2HealthEl = document.getElementById("p2Health");
   const timerEl = document.getElementById("timer");
   const overlayEl = document.getElementById("displayText");
+  
 
   const fighters = new Map();
 
@@ -241,7 +242,7 @@ fightersLayer.appendChild(el);
     const isSamurai = p.char === "samurai";
 
     const attackBoxCfg = isSamurai
-      ? { offset: { x: 100, y: 50 }, width: 135, height: 50 }
+      ? { offset: { x: 100, y: 50 }, width: 170, height: 50 }
       : { offset: { x: 50, y: 50 }, width: 170, height: 50 };
 
     const f = new Fighter({

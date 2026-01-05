@@ -37,6 +37,7 @@ const BODY_W = 50;
 const BODY_H = 150;
 
 const DAMAGE = 20;
+const SAMURAI_DAMAGE_MULT = 1.5;
 const HEART_HEAL_AMOUNT = 15;
 const BLOCK_MULT = 0.2;
 
@@ -296,6 +297,7 @@ function startRound(room) {
 
 function applyHit(attacker, victim) {
   let dmg = DAMAGE;
+  if (attacker.char === "samurai") dmg = Math.round(dmg * SAMURAI_DAMAGE_MULT);
   if (victim.inputs.block) dmg = Math.max(0, Math.floor(dmg * BLOCK_MULT));
 
   victim.health -= dmg;
