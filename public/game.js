@@ -242,7 +242,7 @@ fightersLayer.appendChild(el);
     const isSamurai = p.char === "samurai";
 
     const attackBoxCfg = isSamurai
-      ? { offset: { x: 100, y: 50 }, width: 135, height: 50 }
+      ? { offset: { x: 100, y: 50 }, width: 170, height: 50 }
       : { offset: { x: 50, y: 50 }, width: 170, height: 50 };
 
     const f = new Fighter({
