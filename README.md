@@ -307,6 +307,21 @@ You can test the game on a single computer with two browser windows:
 
 Each tab/window gets a unique socket connection, allowing real multiplayer testing.
 
-**Enjoy the fight! ⚔️**
+## FPS Testing (Real FPS)
+
+You can test the **real in-game FPS** using the built-in **FPS Meter** overlay.
+
+### How to use
+- The FPS meter is displayed as a small overlay in the top-left corner.
+- Press **F** to **toggle** the FPS meter **ON/OFF** at any time.
+
+### What it shows
+- **FPS** — the current frames per second.
+- **MS** — frame time in milliseconds (lower is better).
+
+This is useful for checking performance during idle, movement, jumps, attacks, and multiplayer updates.
+
+
+**Enjoy the fight! ⚔️** 
 
 🔗 Production Multiplayer: https://multi-player-production.up.railway.app
